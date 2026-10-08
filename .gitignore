@@ -1,0 +1,16 @@
+# Driver build artifacts
+*.o
+*.ko
+*.mod*
+*.cmd
+*.symvers
+*.order
+.tmp_versions/
+
+# Device Tree binary artifacts
+*.dtb
+*.dtbo
+
+# Editor artifacts
+.vscode/
+*~
