@@ -1,12 +1,13 @@
 #include "thread.h"
+#include "fan_ioctl.h"
 #include "shared_state.h"
 
 SystemContext g_ctx = { 0, 0, 0, 0 };
-pthread_mutex_t g_state_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t g_state_lock;
 volatile int g_running = 1;
 
 static ThreadInfo g_threads[] = {
-    { "InputThread",  input_thread_fn,  80, 0 },  /* 1순위: 즉각 반응 */
+    { "InputThread",  input_thread_fn,  80, 0 },  /* 1순위: 입력 스레드 */
     { "TimerThread",  timer_thread_fn,  50, 0 },  /* 2순위: 0.5초 틱/디스플레이 */
     { "SensorThread", sensor_thread_fn, 20, 0 }   /* 3순위: 백그라운드 온도 측정 */
 };
@@ -16,16 +17,19 @@ void* input_thread_fn(void* arg){
     /* 스레드 구현 */
     struct fan_input_event ev;// 내가 버튼 누르면 8바이트 입력 이벤트 구조체로 전달 
     SystemContext copy_run_value;// 공유자원 변경한 거를 공유자원은 그대로 두고 복사해서 하드웨어에 넘기기 
-    int changed = 0;
 
     while(g_running){
+        int changed = 0;
         int ret = fan_input_get_event(&ev);
+
         if (ret == -EAGAIN || ret < 0) {
             usleep(10000);
             continue;
         }
 
-        pthread_mutex_lock(&g_state_lock); // 상태 확인했으니 공유자원 접근
+        pthread_mutex_lock(&g_state_lock); // 상태 확인했으니 공유 자원 접근
+
+        long now_ms = get_now_ms();
 
         /* 버튼 이벤트 처리 */
         if (ev.type == FAN_EV_BTN && ev.value == 1) {
@@ -36,6 +40,7 @@ void* input_thread_fn(void* arg){
                     g_ctx.fan_level = 0;
                     g_ctx.swing_on = 0;
                     g_ctx.auto_mode = 0;
+                    timer_reset();
                 } else {
                     g_ctx.fan_level = 1; // 켜질 때 기본 1단
                 }
@@ -45,31 +50,37 @@ void* input_thread_fn(void* arg){
                 // 전원이 켜져 있을 때만 동작하는 버튼들
                 if (ev.id == BTN_SWING) {
                     g_ctx.swing_on = !g_ctx.swing_on;
-                    changed = 1;
                 }
                 else if (ev.id == BTN_ENC_FAN) {
                     // 풍량 엔코더 버튼 -> 모드 전환(수동/자동)으로 활용 시
                     g_ctx.auto_mode = !g_ctx.auto_mode;
-                    changed = 1;
                 }
                 else if (ev.id == BTN_ENC_TIMER) {
-                    // 타이머 버튼 -> 20분(1200초) 추가
-                    g_ctx.timer_remain_sec += (20 * 60);
-                    changed = 1;
+                    // 타이머 버튼 -> 20분(1200초)  시간 설정
+                    
+                    //timer_button(now_ms);
                 }
+                changed = 1;
             }
         }
 
         /*엔코더 회전 이벤트 처리 */
         else if (ev.type == FAN_EV_ROT && g_ctx.power_on) {
-            if (ev.id == ENC_FAN && !g_ctx.auto_mode) {
+            if(ev.id == ENC_TIMER){
+                //타이머 엔코더 회전
+                //아직 미정
+                //timer_rotate(ev.value, now_ms);
+                g_ctx.lcd_set_backlight = 1;
+            }
+            else if (ev.id == ENC_FAN && !g_ctx.auto_mode) {
                 // 풍량 엔코더 회전 (ev.value: +1 CW, -1 CCW)
                 g_ctx.fan_level += ev.value;
                 if (g_ctx.fan_level < 1) g_ctx.fan_level = 1;
                 if (g_ctx.fan_level > 4) g_ctx.fan_level = 4;
-                changed = 1;
             }
+            changed = 1;
         }
+
         copy_run_value = g_ctx;
         pthread_mutex_unlock(&g_state_lock); // 락 해제
 
@@ -79,16 +90,37 @@ void* input_thread_fn(void* arg){
     }
 }
 void* timer_thread_fn(void* arg){
-    // 역할: 
+    // 역할: 시간 감소(틱)랑 디스플레이에 시간 전송
     /* 스레드 구현 */
+    SystemContext copy_run_value;// 공유자원 변경한 거를 공유자원은 그대로 두고 복사해서 하드웨어에 넘기기 
+    int changed = 0;
+
     while(g_running){
-        
+        //타이머 스레드 구현
+
+        copy_run_value = g_ctx;
+        pthread_mutex_unlock(&g_state_lock); // 락 해제
+
+        if (changed) {
+            apply_to_hardware(&copy_run_value);
+        }
     }
 }
 void* sensor_thread_fn(void* arg){
     /* 스레드 구현 */
+    
+    SystemContext copy_run_value;// 공유자원 변경한 거를 공유자원은 그대로 두고 복사해서 하드웨어에 넘기기 
+    int changed = 0;
+
     while(g_running){
-        
+        //온도센서 스레드 구현
+
+        copy_run_value = g_ctx;
+        pthread_mutex_unlock(&g_state_lock); // 락 해제
+
+        if (changed) {
+            apply_to_hardware(&copy_run_value);
+        }
     }
 }
 
@@ -115,9 +147,6 @@ int start_all_threads(void) {
             fprintf(stderr, "[Error] %s 생성 실패 (root 권한 확인)\n", g_threads[i].name);
             return -1;
         }
-
-        printf("[Main] %s 시작됨 (TID: %lu, Priority: %d)\n",
-               g_threads[i].name, (unsigned long)g_threads[i].tid, g_threads[i].priority);
     }
     return 0;
 }
@@ -125,6 +154,5 @@ int start_all_threads(void) {
 void wait_all_threads(void) {
     for (size_t i = 0; i < NUM_THREADS; i++) {
         pthread_join(g_threads[i].tid, NULL);
-        printf("[Main] %s 종료 완료\n", g_threads[i].name);
     }
 }
