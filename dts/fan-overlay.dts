@@ -1,0 +1,64 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/tegra234-gpio.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+    overlay-name = "kcci fan project";
+    compatible = "nvidia,p3768-0000+p3767-0005";   /* 보드 compatible로 수정 */
+
+    fragment@0 {
+        target-path = "/";
+        __overlay__ {
+            fan_input {                                  /* A */
+                compatible = "kcci,fan-input";
+                power-gpios     = <&gpio TEGRA234_MAIN_GPIO(Q, 5) GPIO_ACTIVE_LOW>;
+                swing-gpios     = <&gpio TEGRA234_MAIN_GPIO(Q, 6) GPIO_ACTIVE_LOW>;
+                enc-fan-gpios   = <&gpio TEGRA234_MAIN_GPIO(R, 4)  GPIO_ACTIVE_HIGH>,   /* A  */
+                                  <&gpio TEGRA234_MAIN_GPIO(R, 5)  GPIO_ACTIVE_HIGH>,   /* B  */
+                                  <&gpio TEGRA234_MAIN_GPIO(AC, 6) GPIO_ACTIVE_LOW>;    /* SW */
+                enc-timer-gpios = <&gpio TEGRA234_MAIN_GPIO(H, 7) GPIO_ACTIVE_HIGH>,
+                                  <&gpio TEGRA234_MAIN_GPIO(I, 2) GPIO_ACTIVE_HIGH>,
+                                  <&gpio TEGRA234_MAIN_GPIO(I, 1) GPIO_ACTIVE_LOW>;
+                debounce-ms = <20>;
+            };
+            fan_led {                                    /* A */
+                compatible = "kcci,fan-led";
+                led-gpios = <&gpio TEGRA234_MAIN_GPIO(Y, 0) GPIO_ACTIVE_HIGH>,
+                            <&gpio TEGRA234_MAIN_GPIO(Y, 4) GPIO_ACTIVE_HIGH>,
+                            <&gpio TEGRA234_MAIN_GPIO(Y, 3) GPIO_ACTIVE_HIGH>,
+                            <&gpio TEGRA234_MAIN_GPIO(Y, 1) GPIO_ACTIVE_HIGH>;
+            };
+            fan_motor {                                  /* C */
+                compatible = "kcci,fan-motor";
+                pwms = <&pwm7 0 50000>;                  /* 20 kHz */
+                dir-gpios = <&gpio TEGRA234_MAIN_GPIO(Y, 2) GPIO_ACTIVE_HIGH>,   /* IN1 */
+                            <&gpio TEGRA234_MAIN_GPIO(I, 0) GPIO_ACTIVE_HIGH>;   /* IN2 */
+            };
+            fan_servo {                                  /* C */
+                compatible = "kcci,fan-servo";
+                pwms = <&pwm5 0 20000000>;               /* 50 Hz */
+                min-pulse-us = <500>;
+                max-pulse-us = <2500>;
+                swing-min-deg = <30>;
+                swing-max-deg = <150>;
+            };
+        };
+    };
+
+    fragment@1 {                                         /* B */
+        target-path = "/bus@0/i2c@c250000";              /* i2c-7, 확인 필요 */
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            bmp180@77 { compatible = "kcci,bmp180";  reg = <0x77>; };
+            lcd@27    { compatible = "kcci,lcd1602"; reg = <0x27>; };
+        };
+    };
+
+    fragment@2 { target = <&pwm7>; __overlay__ { status = "okay"; }; };
+    fragment@3 { target = <&pwm5>; __overlay__ { status = "okay"; }; };
+
+    /* pinmux(입력 허용 등)는 보드 DT에서 핀 노드 이름을 확인해 추가한다 (12장) */
+};
