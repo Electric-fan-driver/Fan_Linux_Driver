@@ -27,7 +27,10 @@
 //3숭뉘 : 센서 스레드
 
 
-void main(){
+int main(){
+
+    int ret;
+
     fan_input_open();
     led_open();
     bmp180_open();
@@ -36,6 +39,19 @@ void main(){
     servo_open();
 
     /* 구현 */
+    ret = pthread_mutex_init(&g_state_lock, NULL);
+	if(ret != 0) {
+		printf("[%d] error: %d (%d)\n", pid, ret, __LINE__);
+		return EXIT_FAILURE;
+	}
+
+    apply_to_hardware(&g_ctx);
+
+    start_all_threads();
+    wait_all_threads();
+
+    pthread_mutex_destroy(&g_state_lock);
+
 
     fan_input_close();
     led_close();
@@ -44,4 +60,5 @@ void main(){
     motor_close();
     servo_close();
 
+    return EXIT_SUCCESS;
 }
