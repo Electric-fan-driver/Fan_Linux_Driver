@@ -11,5 +11,6 @@ void apply_to_hardware(const SystemContext *copy) {
 
     motor_set_level(copy->fan_level);
     led_set_level(copy->fan_level);
-    servo_swing(copy->swing_on);
+    servo_set_swing(copy->swing_on);
+    lcd_set_backlight(copy->lcd_set_backlight);
 }
