@@ -144,6 +144,8 @@ void* sensor_thread_fn(void* arg){
         if (changed) {
             apply_to_hardware(&copy_run_value);
         }
+
+        sleep(1);// 센서값 읽어오는데 시간이 좀 걸리니 무작정 스레드가 과도하게 두드리는거 방지
     }
 }
 
