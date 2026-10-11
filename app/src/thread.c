@@ -115,8 +115,31 @@ void* sensor_thread_fn(void* arg){
     while(g_running){
         //온도센서 스레드 구현
 
+        int raw_temp = 0;
+        int ret = bmp180_get_temperature(&raw_temp);
+        if (ret != 0) continue;
+
+        int current_temp = raw_temp / 10; 
+
+        pthread_mutex_lock(&g_state_lock);
+
+        int changed = 0;
+        if (g_ctx.power_on && g_ctx.auto_mode) {
+            int target_level = g_ctx.fan_level;
+
+            /* 온도 구간별 풍량 단계 결정 */
+            if (current_temp >= 28) target_level = 3;
+            else if (current_temp >= 25) target_level = 2;
+            else target_level = 1;
+
+            if (g_ctx.fan_level != target_level) {
+                g_ctx.fan_level = target_level;
+                changed = 1;
+            }
+        }
+
         copy_run_value = g_ctx;
-        pthread_mutex_unlock(&g_state_lock); // 락 해제
+        pthread_mutex_unlock(&g_state_lock);
 
         if (changed) {
             apply_to_hardware(&copy_run_value);
