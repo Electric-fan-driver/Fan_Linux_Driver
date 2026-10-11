@@ -40,10 +40,7 @@ int main(){
 
     /* 구현 */
     ret = pthread_mutex_init(&g_state_lock, NULL);
-	if(ret != 0) {
-		printf("[%d] error: %d (%d)\n", pid, ret, __LINE__);
-		return EXIT_FAILURE;
-	}
+	if(ret != 0) return EXIT_FAILURE;
 
     apply_to_hardware(&g_ctx);
 
