@@ -3,11 +3,11 @@
 #include <linux/i2c.h>
 #include <linux/of.h>
 #include <linux/types.h>
-#include <linux/slab.h>
 #include <linux/mutex.h>
 #include <linux/delay.h>
 #include <linux/math64.h>
 #include <linux/limits.h>
+#include <linux/iio/iio.h>
 
 #define BMP180_CHIP_ID_REG   0xD0
 #define BMP180_CHIP_ID       0x55
@@ -47,7 +47,7 @@ struct fan_bmp180_measurement {
     u32 pressure_pa;
 };
 
-/* 장치 초기화 시 한 번 읽어 저장 */
+/* 초기화 시 한 번 읽어 저장 */
 static int fan_bmp180_read_calibration(struct fan_bmp180_data *data)
 {
     struct fan_bmp180_calibration *c = &data->calib;
@@ -65,7 +65,7 @@ static int fan_bmp180_read_calibration(struct fan_bmp180_data *data)
         buf[i] = (u8)value;
     }
 
-    for (i = 0; i < 11; i++) {
+    for (i = 0; i < ARRAY_SIZE(words); i++) {
         words[i] = ((u16)buf[2 * i] << 8) | buf[2 * i + 1];
 
         if (words[i] == 0 || words[i] == 0xFFFF) {
@@ -88,17 +88,6 @@ static int fan_bmp180_read_calibration(struct fan_bmp180_data *data)
     c->mc  = (s16)words[9];
     c->md  = (s16)words[10];
 
-    dev_info(&data->client->dev,
-             "Calibration: AC1=%d AC2=%d AC3=%d AC4=%u AC5=%u AC6=%u\n",
-             c->ac1, c->ac2, c->ac3,
-             (unsigned int)c->ac4,
-             (unsigned int)c->ac5,
-             (unsigned int)c->ac6);
-
-    dev_info(&data->client->dev,
-             "Calibration: B1=%d B2=%d MB=%d MC=%d MD=%d\n",
-             c->b1, c->b2, c->mb, c->mc, c->md);
-
     return 0;
 }
 
@@ -118,7 +107,7 @@ static int fan_bmp180_read_raw_temperature(struct fan_bmp180_data *data,
 
     msleep(5);
 
-    for (i = 0; i < 2; i++) {
+    for (i = 0; i < ARRAY_SIZE(buf); i++) {
         ret = i2c_smbus_read_byte_data(data->client,
                                      BMP180_OUT_MSB_REG + i);
         if (ret < 0)
@@ -128,6 +117,7 @@ static int fan_bmp180_read_raw_temperature(struct fan_bmp180_data *data,
     }
 
     *ut = ((u16)buf[0] << 8) | buf[1];
+
     return 0;
 }
 
@@ -151,7 +141,7 @@ static int fan_bmp180_read_raw_pressure(struct fan_bmp180_data *data,
 
     msleep(wait_ms[oss]);
 
-    for (i = 0; i < 3; i++) {
+    for (i = 0; i < ARRAY_SIZE(buf); i++) {
         ret = i2c_smbus_read_byte_data(data->client,
                                      BMP180_OUT_MSB_REG + i);
         if (ret < 0)
@@ -185,6 +175,7 @@ static int fan_bmp180_compensate(
 
     /* 온도 보정 */
     x1 = (((s64)ut - c->ac6) * c->ac5) >> 15;
+
     denominator = x1 + c->md;
     if (!denominator)
         return -ERANGE;
@@ -192,6 +183,7 @@ static int fan_bmp180_compensate(
     x2 = div64_s64((s64)c->mc * 2048, denominator);
     b5 = x1 + x2;
 
+    /* 0.1°C 단위의 결과를 m°C로 변환 */
     temperature = ((b5 + 8) >> 4) * 100;
     if (temperature < S32_MIN || temperature > S32_MAX)
         return -ERANGE;
@@ -246,24 +238,19 @@ static int fan_bmp180_compensate(
 }
 
 /*
- * 공통 측정 함수
- *
- * 호출할 때마다 새 온도와 기압을 측정하여 보정한다.
- * msleep과 mutex를 사용하므로 잠들 수 있는 문맥에서 호출해야 한다.
+ * 온도·기압을 새로 측정하여 보정한 결과 전달.
  *
  * 반환값:
  *   0    : 성공, result 사용 가능
  *   음수 : 실패, result 사용 금지
  *
- * 호출자는 자신의 result 구조체를 제공한다.
+ * 잠들 수 있는 문맥에서 호출해야 한다.
  */
 static int fan_bmp180_get_measurement(
     struct fan_bmp180_data *data,
     struct fan_bmp180_measurement *result)
 {
-    struct fan_bmp180_measurement sample;
-    int temperature_tenths;
-    int temperature_abs;
+    struct fan_bmp180_measurement sample = { 0 };
     u8 oss;
     int ret;
 
@@ -290,40 +277,80 @@ static int fan_bmp180_get_measurement(
     if (ret)
         goto out;
 
-    /* 모든 작업이 성공한 경우에만 호출자의 결과를 갱신 */
     *result = sample;
 
 out:
     mutex_unlock(&data->lock);
 
+    return ret;
+}
+
+/*
+ * IIO 읽기 콜백.
+ *
+ * 함수의 return 값은 IIO 값의 표현 방식 또는 오류 코드다.
+ * 실제 측정값은 val / val2를 통해 IIO에 전달한다.
+ */
+static int fan_bmp180_read_raw(
+    struct iio_dev *indio_dev,
+    const struct iio_chan_spec *chan,
+    int *val, int *val2, long mask)
+{
+    struct fan_bmp180_data *data = iio_priv(indio_dev);
+    struct fan_bmp180_measurement result;
+    int ret;
+
+    if (mask != IIO_CHAN_INFO_PROCESSED)
+        return -EINVAL;
+
+    if (chan->type != IIO_TEMP && chan->type != IIO_PRESSURE)
+        return -EINVAL;
+
+    ret = fan_bmp180_get_measurement(data, &result);
     if (ret)
         return ret;
 
-    /* 테스트용 로그: 사용자 인터페이스 연결 후 제거 가능 */
-    temperature_tenths = DIV_ROUND_CLOSEST(sample.temperature_mc, 100);
-    temperature_abs = temperature_tenths < 0
-                    ? -temperature_tenths : temperature_tenths;
+    switch (chan->type) {
+    case IIO_TEMP:
+        /* IIO 온도 입력의 표준 단위: m°C */
+        *val = result.temperature_mc;
+        *val2 = 0;
+        return IIO_VAL_INT;
 
-    dev_info(&data->client->dev,
-             "Raw measurement: UT=%u, UP=%u, OSS=%u\n",
-             (unsigned int)sample.raw_temperature,
-             sample.raw_pressure,
-             (unsigned int)oss);
+    case IIO_PRESSURE:
+        /*
+         * IIO 기압 입력의 표준 단위: kPa
+         *
+         * 101331 Pa -> 101 + 331000 / 1000000 kPa
+         */
+        *val = result.pressure_pa / 1000;
+        *val2 = (result.pressure_pa % 1000) * 1000;
+        return IIO_VAL_INT_PLUS_MICRO;
 
-    dev_info(&data->client->dev,
-             "Compensated: temperature=%s%d.%d C, pressure=%u Pa\n",
-             temperature_tenths < 0 ? "-" : "",
-             temperature_abs / 10,
-             temperature_abs % 10,
-             sample.pressure_pa);
-
-    return 0;
+    default:
+        return -EINVAL;
+    }
 }
+
+static const struct iio_info fan_bmp180_iio_info = {
+    .read_raw = fan_bmp180_read_raw,
+};
+
+static const struct iio_chan_spec fan_bmp180_channels[] = {
+    {
+        .type = IIO_TEMP,
+        .info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED),
+    },
+    {
+        .type = IIO_PRESSURE,
+        .info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED),
+    },
+};
 
 static int fan_bmp180_probe(struct i2c_client *client)
 {
+    struct iio_dev *indio_dev;
     struct fan_bmp180_data *data;
-    struct fan_bmp180_measurement test_result;
     int chip_id;
     int ret;
 
@@ -336,7 +363,8 @@ static int fan_bmp180_probe(struct i2c_client *client)
 
     chip_id = i2c_smbus_read_byte_data(client, BMP180_CHIP_ID_REG);
     if (chip_id < 0) {
-        dev_err(&client->dev, "Chip ID read failed: %d\n", chip_id);
+        dev_err(&client->dev,
+                "Chip ID read failed: %d\n", chip_id);
         return chip_id;
     }
 
@@ -346,9 +374,15 @@ static int fan_bmp180_probe(struct i2c_client *client)
         return -ENODEV;
     }
 
-    data = devm_kzalloc(&client->dev, sizeof(*data), GFP_KERNEL);
-    if (!data)
+    /*
+     * IIO 장치와 드라이버 전용 데이터 공간을 함께 할당.
+     * 할당된 자원은 devm이 해제한다.
+     */
+    indio_dev = devm_iio_device_alloc(&client->dev, sizeof(*data));
+    if (!indio_dev)
         return -ENOMEM;
+
+    data = iio_priv(indio_dev);
 
     data->client = client;
     data->chip_id = (u8)chip_id;
@@ -362,21 +396,24 @@ static int fan_bmp180_probe(struct i2c_client *client)
         return ret;
     }
 
-    i2c_set_clientdata(client, data);
+    indio_dev->name = "fan_bmp180";
+    indio_dev->dev.parent = &client->dev;
+    indio_dev->info = &fan_bmp180_iio_info;
+    indio_dev->modes = INDIO_DIRECT_MODE;
+    indio_dev->channels = fan_bmp180_channels;
+    indio_dev->num_channels = ARRAY_SIZE(fan_bmp180_channels);
 
-    /*
-     * 임시 테스트 호출.
-     */
-    ret = fan_bmp180_get_measurement(data, &test_result);
+    ret = devm_iio_device_register(&client->dev, indio_dev);
     if (ret) {
         dev_err(&client->dev,
-                "Test measurement failed: %d\n", ret);
-        i2c_set_clientdata(client, NULL);
+                "IIO registration failed: %d\n", ret);
         return ret;
     }
 
+    i2c_set_clientdata(client, indio_dev);
+
     dev_info(&client->dev,
-             "Chip ID verified: 0x%02x, device data initialized\n",
+             "Chip ID verified: 0x%02x, IIO device registered\n",
              data->chip_id);
 
     return 0;
@@ -399,4 +436,4 @@ static struct i2c_driver fan_bmp180_driver = {
 module_i2c_driver(fan_bmp180_driver);
 
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("Fan BMP180 I2C sensor driver");
+MODULE_DESCRIPTION("Fan BMP180 IIO temperature and pressure driver");
