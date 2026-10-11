@@ -1,4 +1,4 @@
-obj-m := bmp180_demo.o
+obj-m := fan_bmp180_driver.o
 
 KERNELDIR := /lib/modules/$(shell uname -r)/build
 MODULEDIR := $(CURDIR)
