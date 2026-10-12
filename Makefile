@@ -13,18 +13,19 @@ export ARCH CROSS_COMPILE
 # ==============================================================================
 ifneq ($(KERNELRELEASE),)
 
-    # 드라이버 소스 등록
-    obj-m += driver/fan_bmp180_driver.o
-    obj-m += driver/fan_lcd_driver.o
-    obj-m += driver/fan_led_driver.o
-    obj-m += driver/fan_motor_driver.o
-    obj-m += driver/timer.o
-
-    # 하위 디렉터리 진입
+    obj-m += driver/bmp180/
+    obj-m += driver/lcd1602/
+    obj-m += driver/led/
+    obj-m += driver/motor/
+    obj-m += driver/servo/
     obj-m += driver/fan_input/
 
-    # 커널 모듈 공통 헤더 경로 (include 폴더)
-    ccflags-y := -I$(PWD)/include
+    ccflags-y := -I$(PWD)/include \
+                 -I$(PWD)/driver/fan_input/include \
+                 -I$(PWD)/driver/bmp180 \
+                 -I$(PWD)/driver/lcd1602
+
+
 
 # ==============================================================================
 # 2. 일반 Make 영역 (유저가 터미널에서 make를 실행했을 때)
@@ -40,7 +41,8 @@ else
     APP_SRCS     := $(filter-out app/src/test_fsm_mock.c, $(ALL_SRCS))
     APP_OBJS     := $(APP_SRCS:.c=.o)
     
-    APP_INCLUDES := -Iapp/include -Iinclude
+#     APP_INCLUDES := -Iapp/include -Iinclude
+    APP_INCLUDES := -Iapp/include -Iinclude -Idriver/fan_input/include
     CFLAGS       += $(APP_INCLUDES) -Wall -O2 -pthread
 
     .PHONY: all app modules dtbo clean

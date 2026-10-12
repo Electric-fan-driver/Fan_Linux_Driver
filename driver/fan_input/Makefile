@@ -7,5 +7,5 @@ fan_input_core-objs := fan_input_wrapper.o \
                        fan_event_queue.o
 
 # 헤더 경로 지정 (fan_input/include)
-ccflags-y += -I$(src)/include
+ccflags-y += -I$(src)/include -DFAN_EMBEDDED
 
