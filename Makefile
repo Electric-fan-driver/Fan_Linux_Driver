@@ -13,18 +13,40 @@ export ARCH CROSS_COMPILE
 # ==============================================================================
 ifneq ($(KERNELRELEASE),)
 
-    # 드라이버 소스 등록
-    obj-m += driver/fan_bmp180_driver.o
-    obj-m += driver/fan_lcd_driver.o
-    obj-m += driver/fan_led_driver.o
-    obj-m += driver/fan_motor_driver.o
-    obj-m += driver/timer.o
+    # 1. BMP180 모듈
+    obj-m += driver/bmp180/fan_bmp180_driver.o
+    driver/bmp180/fan_bmp180_driver-y := fan_bmp180_device.o \
+                                         fan_bmp180_main.o \
+                                         fan_bmp180_sensor.o
 
-    # 하위 디렉터리 진입
+    # 2. LCD1602 모듈
+    obj-m += driver/lcd1602/fan_lcd_driver.o
+    driver/lcd1602/fan_lcd_driver-y := fan_lcd_device.o \
+                                       fan_lcd_hw.o \
+                                       fan_lcd_main.o
+
+    # 3. LED 모듈
+    obj-m += driver/led/fan_led_driver.o
+    driver/led/fan_led_driver-y := fan_led_main.o
+
+    # 4. Motor 모듈
+    obj-m += driver/motor/fan_motor_driver.o
+    driver/motor/fan_motor_driver-y := fan_motor_main.o
+
+    # 5. Servo 모듈
+    obj-m += driver/servo/fan_servo_driver.o
+    driver/servo/fan_servo_driver-y := fan_servo_main.o
+
+    # 6. Fan Input (단독 디렉터리)
     obj-m += driver/fan_input/
 
-    # 커널 모듈 공통 헤더 경로 (include 폴더)
-    ccflags-y := -I$(PWD)/include
+    # 헤더 인클루드 경로
+    ccflags-y := -I$(PWD)/include \
+                 -I$(PWD)/driver/fan_input/include \
+                 -I$(PWD)/driver/bmp180 \
+                 -I$(PWD)/driver/lcd1602
+
+endif
 
 # ==============================================================================
 # 2. 일반 Make 영역 (유저가 터미널에서 make를 실행했을 때)
@@ -40,7 +62,8 @@ else
     APP_SRCS     := $(filter-out app/src/test_fsm_mock.c, $(ALL_SRCS))
     APP_OBJS     := $(APP_SRCS:.c=.o)
     
-    APP_INCLUDES := -Iapp/include -Iinclude
+#     APP_INCLUDES := -Iapp/include -Iinclude
+    APP_INCLUDES := -Iapp/include -Iinclude -Idriver/fan_input/include
     CFLAGS       += $(APP_INCLUDES) -Wall -O2 -pthread
 
     .PHONY: all app modules dtbo clean
