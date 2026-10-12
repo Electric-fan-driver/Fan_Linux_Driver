@@ -3,11 +3,29 @@
 
 #include <pthread.h>
 
+typedef enum {
+    MODE_MANUAL = 0, 
+    MODE_AUTO        
+} FanMode;
+
+typedef enum {
+    POWER_OFF = 0, 
+    POWER_ON        
+} PowerMode;
+
+typedef enum {
+    SWING_OFF = 0, 
+    SWING_ON        
+} SwingMode;
+
+#define FAN_LEVEL_MIN    1
+#define FAN_LEVEL_MAX    4
+
 typedef struct {
-    int power_on;    // 0: OFF, 1: ON
-    int auto_mode;   // 0: MAN, 1: AUTO
-    int fan_level;   // 0 ~ 4
-    int swing_on;    // 0: STOP, 1: SWING
+    PowerMode power;    // 0: OFF, 1: ON
+    FanMode mode;   // 0: MAN, 1: AUTO
+    int fan_level;   // 1 ~ 4
+    SwingMode swing_on;    // 0: STOP, 1: SWING
 } SystemContext;
 
 // 전역 공유 자원
