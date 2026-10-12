@@ -9,6 +9,8 @@
 
 int __init timer_input_init_child(void);
 void timer_input_exit_child(void);
+int __init button_input_init_child(void);
+void button_input_exit_child(void);
 static unsigned int event_abi = FAN_IOCTL_VERSION;
 module_param(event_abi, uint, 0444);
 MODULE_PARM_DESC(event_abi, "Ordered /dev/fan_input event ABI (must be 1)");
@@ -30,6 +32,12 @@ static int __init fan_input_bundle_init(void)
         fan_input_exit();
         goto err_events;
     }
+    ret = button_input_init_child();
+    if (ret) {
+        timer_input_exit_child();
+        fan_input_exit();
+        goto err_events;
+    }
     fan_event_device_start();
     return 0;
 err_events:
@@ -39,6 +47,7 @@ err_events:
 
 static void __exit fan_input_bundle_exit(void)
 {
+    button_input_exit_child();
     timer_input_exit_child();
     fan_input_exit();
     fan_event_device_exit();
