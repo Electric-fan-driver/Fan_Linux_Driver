@@ -15,7 +15,5 @@ void* input_thread_fn(void* arg);
 void* timer_thread_fn(void* arg);
 void* sensor_thread_fn(void* arg);
 
-//스레드 목록 테이블 정의
-extern static ThreadInfo g_threads[];
-extern int start_all_threads(void);
-extern void wait_all_threads(void);
+int start_all_threads(void);
+void wait_all_threads(void);

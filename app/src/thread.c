@@ -1,11 +1,17 @@
+#include <unistd.h>
 #include "thread.h"
 #include "fan_ioctl.h"
 #include "shared_state.h"
+#include "fan_api.h"
 
 SystemContext g_ctx = { 0, 0, 0, 0, 0, 0, 0 };
 pthread_mutex_t g_state_lock;
 volatile int g_running = 1;
-int setting_timer;
+int setting_timer =0;
+
+extern int fsm_handle_event(SystemContext *ctx, const struct fan_input_event *ev, long now_ms);
+extern void apply_to_hardware(const SystemContext *copy);
+extern int fsm_auto_mode(SystemContext *ctx, int current_temp);
 
 static ThreadInfo g_threads[] = {
     { "InputThread",  input_thread_fn,  80, 0 },  /* 1순위: 입력 스레드 */
@@ -26,17 +32,11 @@ void* input_thread_fn(void* arg){
     SystemContext copy_run_value;// 공유자원 변경한 거를 공유자원은 그대로 두고 복사해서 하드웨어에 넘기기 
 
     while(g_running){
-        int ret = fan_input_get_event(&ev);
         long now_ms = get_now_ms();
-
-        if (ret == -EAGAIN || ret < 0) {
-            usleep(10000);
-            continue;
-        }
 
         pthread_mutex_lock(&g_state_lock); // 상태 확인했으니 공유 자원 접근
 
-        changed = fsm_handle_event(&g_ctx, &ev, now_ms);
+        fsm_handle_event(&g_ctx, &ev, now_ms);
 
         copy_run_value = g_ctx;
 

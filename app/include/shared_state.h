@@ -34,7 +34,7 @@ typedef struct {
 // 전역 공유 자원
 extern SystemContext g_ctx;
 extern pthread_mutex_t g_state_lock;
-extern int g_running;
-extern int setting_timer =0;
+extern volatile int g_running;
+extern int setting_timer;
 
 #endif

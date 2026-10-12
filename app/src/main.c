@@ -6,6 +6,7 @@
 #include <time.h>
 #include <sys/timerfd.h>
 #include "fan_api.h"
+#include "shared_state.h"
 #include "thread.h"
 
 //메인 스레드(전체 시스템 초기화, 종료 시그널(SIGINT) 대기 및 자원 정리, 스레드 생명주기, 우선순위 관리)
@@ -26,24 +27,10 @@
 //2순위 : 타이머 스레드
 //3숭뉘 : 센서 스레드
 
-static void sigint_handler(int signo) {
-    (void)signo;
-    // thread.c에 정의된 volatile int g_running을 0으로 만들어 각 스레드 루프 탈출
-    g_running = 0;
-}
+
 
 int main(void) {
     int ret;
-
-    struct sigaction sa;
-    sa.sa_handler = sigint_handler;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-
-    if (sigaction(SIGINT, &sa, NULL) < 0) {
-        perror("sigaction(SIGINT) failed");
-        return EXIT_FAILURE;
-    }
 
     fan_input_open();
     led_open();
@@ -65,7 +52,7 @@ int main(void) {
     wait_all_threads();
 
     pthread_mutex_destroy(&g_state_lock);
-
+    g_running =0;
     fan_input_close();
     led_close();
     bmp180_close();

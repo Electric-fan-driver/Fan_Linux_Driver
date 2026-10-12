@@ -1,9 +1,7 @@
 #include "fan_ioctl.h"
 #include "shared_state.h"
+#include "fan_api.h"
 
-void timer_reset(void);
-void timer_button(long now_ms);
-void timer_rotate(int dir, long now_ms);
 extern void fan_temp_policy(int * target_level, int current_temp);
 
 extern int setting_timer;

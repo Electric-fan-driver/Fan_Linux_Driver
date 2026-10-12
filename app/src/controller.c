@@ -1,5 +1,5 @@
 #include "shared_state.h"
-
+#include "fan_api.h"
 
 void apply_to_hardware(const SystemContext *copy) {
     if (!copy->power) {

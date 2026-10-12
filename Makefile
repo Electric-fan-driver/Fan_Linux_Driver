@@ -1,36 +1,42 @@
 # --- 타깃 커널 및 경로 설정 ---
 KDIR ?= /lib/modules/$(shell uname -r)/build
-PWD := $(shell pwd)
+PWD  := $(CURDIR)
 
-# 크로스 컴파일 필요 시 주석 해제 후 환경에 맞게 사용
-ARCH ?= arm64
+# 크로스 컴파일 설정
+ARCH          ?= arm64
 CROSS_COMPILE ?= aarch64-linux-gnu-
 
-# --- 1. 유저 애플리케이션 설정 ---
-CC ?= gcc
-APP_TARGET := fan_app
-APP_SRCS := $(wildcard app/src/*.c)
-APP_OBJS := $(APP_SRCS:.c=.o)
-APP_INCLUDES := -Iapp/include -Iinclude
-# pthread 사용 시 -pthread 추가
-CFLAGS += $(APP_INCLUDES) -Wall -O2 -pthread
+export ARCH CROSS_COMPILE
 
-# --- 2. 커널 모듈(드라이버) 설정 ---
-# driver 폴더 내 각 C 파일들을 개별 모듈(.ko)로 빌드
-# 추가예정
+# --- 1. 유저 애플리케이션 빌드 설정 ---
+CC           := $(CROSS_COMPILE)gcc
+APP_TARGET   := app/fan_app
+APP_SRCS     := $(wildcard app/src/*.c)
+APP_OBJS     := $(APP_SRCS:.c=.o)
+APP_INCLUDES := -Iapp/include -Iinclude
+CFLAGS       += $(APP_INCLUDES) -Wall -O2 -pthread
+
+# --- 2. 커널 모듈 (Kbuild) 설정 ---
+# driver 폴더 직하위 드라이버들
 obj-m += driver/fan_bmp180_driver.o
 obj-m += driver/fan_input_driver.o
 obj-m += driver/fan_lcd_driver.o
 obj-m += driver/fan_led_driver.o
 obj-m += driver/fan_motor_driver.o
+obj-m += driver/timer.o
 
-# 드라이버에서 include/fan_ioctl.h 등을 참조할 수 있도록 헤더 경로 전달
+# driver/fan_input 폴더로 kbuild 진입
+obj-m += driver/fan_input/
+
+# 전체 드라이버가 공통 참조할 헤더 경로
 ccflags-y := -I$(PWD)/include
 
-# --- 기본 타깃 ---
+# --- 타깃 규칙 ---
+.PHONY: all app modules dtbo clean
+
 all: app modules
 
-# 앱 빌드
+# 유저 앱 빌드
 app: $(APP_TARGET)
 
 $(APP_TARGET): $(APP_OBJS)
@@ -43,9 +49,11 @@ app/src/%.o: app/src/%.c
 modules:
 	$(MAKE) -C $(KDIR) M=$(PWD) modules
 
-# 디바이스 트리 오버레이 빌드 (.dtbo 생성 필요 시)
-dtbo: dts/fan-overlay.dts
-	dtc -@ -I dts -O dtb -o dts/fan-overlay.dtbo dts/fan-overlay.dts
+# 디바이스 트리 오버레이 빌드 (.dtbo)
+dtbo: dts/fan-overlay.dtbo
+
+dts/fan-overlay.dtbo: dts/fan-overlay.dts
+	dtc -@ -I dts -O dtb -o $@ $<
 
 # 클린업
 clean:
