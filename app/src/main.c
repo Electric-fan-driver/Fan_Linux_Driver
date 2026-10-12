@@ -1,3 +1,6 @@
+#define _POSIX_C_SOURCE 200809L
+#include <errno.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -13,8 +16,6 @@
 // 입력 감지 스레드(엔코더 돌리기, 엔코더 버튼, 전원 스위치, 회전 스위치)
 // 타이머 스레드
 // 센서스레드(온도)
-
-
 //공유자원(뮤텍스 걸어야할 것들)
 // 전원상태(입력스레드, 센서, 타이머 스레드가 관여)
 // 동작 모드( 입력스레드, 센서 스레드가 관여)
