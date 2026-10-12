@@ -5,6 +5,7 @@
 // 엔코더 드라이버(fan_input.c)와 같은 이벤트 줄(fan_event_queue.c)을 쓴다.
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/of.h>
 #include <linux/property.h>
 #include <linux/gpio/consumer.h>
 #include <linux/interrupt.h>
