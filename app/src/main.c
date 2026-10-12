@@ -64,13 +64,6 @@ int main(void) {
 
     wait_all_threads();
 
-    pthread_mutex_lock(&g_state_lock);
-    g_ctx.power = 0;
-    g_ctx.fan_level = 0;
-    g_ctx.swing = 0;
-    apply_to_hardware(&g_ctx);
-    pthread_mutex_unlock(&g_state_lock);
-
     pthread_mutex_destroy(&g_state_lock);
 
     fan_input_close();
