@@ -168,7 +168,7 @@ int fan_event_device_init(void)
     ready = false;
     overflow_pending = false;
     dropped_events = 0;
-    kfifo_reset(&events);
+    INIT_KFIFO(events);
     return misc_register(&event_device);
 }
 void fan_event_device_start(void)
