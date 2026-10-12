@@ -35,15 +35,26 @@ NVIDIA Jetson 기반 임베디드 리눅스 환경에서 커스텀 디바이스 
 
 ### 2. 커널 드라이버 및 인터페이스 명세
 
-모든 드라이버는 `miscdevice`로 동적 등록되며 공용 헤더(`fan_ioctl.h`)를 통해 통신합니다.
+BMP180은 IIO sysfs로 온도·기압을 제공하며, 나머지 장치의 인터페이스는 아래 표를 따릅니다.
 
 | 장치 노드 | 소스 파일 | 통신 방식 | 설명 |
 | :--- | :--- | :--- | :--- |
 | `/dev/fan_input` | `fan_input_driver.c` | `read`, `poll` | 8바이트 이벤트 구조체(`struct fan_input_event`) 반환, 소프트웨어 디바운스 적용 |
 | `/dev/fan_motor` | `fan_motor_driver.c` | `ioctl` | 모터 풍량 레벨(0~4) 설정, 기동 시 200ms 킥스타트(100% 듀티) 적용 |
 | `/dev/fan_led` | `fan_led_driver.c` | `ioctl` | 풍량 레벨(0~4)에 따른 LED 단계 점등 제어 |
-| `/dev/bmp180` | `fan_bmp180_driver.c` | `read` | 0.1℃ 단위 정수 문자열 출력 (예: `"246\n"` = 24.6℃) |
+| `/sys/bus/iio/devices/iio:deviceX/` | `fan_bmp180_main.c`, `fan_bmp180_sensor.c`, `fan_bmp180_iio.c` | IIO sysfs 읽기 | `name`이 `fan_bmp180`인 장치의 `in_temp_input`(m°C), `in_pressure_input`(kPa) 읽기 |
 | `/dev/lcd1602` | `fan_lcd_driver.c` | `pwrite`, `ioctl` | PCF8574 기반 HD44780 제어, 영역별 부분 갱신 및 백라이트 제어 |
+
+### BMP180 앱 측정 테스트
+
+BMP180 IIO 드라이버를 로드한 뒤 저장소 루트에서 실행합니다.
+
+```bash
+make -C app bmp180_test
+./app/bmp180_test
+```
+
+앱은 `name`이 `fan_bmp180`인 IIO 장치를 자동으로 찾고, 1초마다 온도(C)와 기압(hPa)을 출력합니다. `Ctrl+C`로 종료합니다. `app/src/bmp180.c`의 API는 성공 시 0, 실패 시 음수 errno를 반환합니다. `bmp180_get_measurement()`는 온도(0.1°C 단위 정수)와 기압(Pa)을 함께 전달하며, 두 sysfs 파일은 각각 별도의 측정을 요청합니다.
 
 ---
 
@@ -84,7 +95,10 @@ Fan_Linux_Driver/
 │   │   └── timer.c             # 타이머 로직 및 시간 계산
 │   └── Makefile                # 애플리케이션 빌드 Makefile
 ├── driver/
-│   ├── fan_bmp180_driver.c     # BMP180 I2C 커널 드라이버
+│   ├── fan_bmp180_main.c       # BMP180 probe 및 I2C 드라이버 등록
+│   ├── fan_bmp180_sensor.c     # BMP180 초기화, 측정 및 보정 계산
+│   ├── fan_bmp180_iio.c        # BMP180 IIO 채널 및 읽기 인터페이스
+│   ├── fan_bmp180.h            # BMP180 공유 구조체 및 함수 선언
 │   ├── fan_input_driver.c      # GPIO IRQ & 디바운스 입력 드라이버
 │   ├── fan_lcd_driver.c        # HD44780 + PCF8574 LCD I2C 드라이버
 │   ├── fan_led_driver.c        # GPIO 배열 LED 드라이버

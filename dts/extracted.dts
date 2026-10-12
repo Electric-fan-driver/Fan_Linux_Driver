@@ -6268,11 +6268,6 @@
 			dmas = <0xed 0x00 0xed 0x00>;
 			reset-names = "i2c";
 
-			bmp180@77 {
-				compatible = "bosch,bmp180";
-				reg = <0x77>;
-			};
-
 			prod-settings {
 				#prod-cells = <0x04>;
 

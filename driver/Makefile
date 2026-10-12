@@ -1,5 +1,9 @@
 obj-m := fan_bmp180_driver.o
 
+fan_bmp180_driver-y := fan_bmp180_main.o \
+                       fan_bmp180_sensor.o \
+                       fan_bmp180_iio.o
+
 KERNELDIR := /lib/modules/$(shell uname -r)/build
 MODULEDIR := $(CURDIR)
 
