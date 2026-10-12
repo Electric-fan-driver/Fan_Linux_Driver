@@ -26,10 +26,24 @@
 //2순위 : 타이머 스레드
 //3숭뉘 : 센서 스레드
 
+static void sigint_handler(int signo) {
+    (void)signo;
+    // thread.c에 정의된 volatile int g_running을 0으로 만들어 각 스레드 루프 탈출
+    g_running = 0;
+}
 
-int main(){
-
+int main(void) {
     int ret;
+
+    struct sigaction sa;
+    sa.sa_handler = sigint_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+
+    if (sigaction(SIGINT, &sa, NULL) < 0) {
+        perror("sigaction(SIGINT) failed");
+        return EXIT_FAILURE;
+    }
 
     fan_input_open();
     led_open();
@@ -38,17 +52,26 @@ int main(){
     motor_open();
     servo_open();
 
-    /* 구현 */
     ret = pthread_mutex_init(&g_state_lock, NULL);
-	if(ret != 0) return EXIT_FAILURE;
+    if (ret != 0) {
+        return EXIT_FAILURE;
+    }
 
-    apply_to_hardware(&g_ctx);
+    if (start_all_threads() != 0) {
+        pthread_mutex_destroy(&g_state_lock);
+        return EXIT_FAILURE;
+    }
 
-    start_all_threads();
     wait_all_threads();
 
-    pthread_mutex_destroy(&g_state_lock);
+    pthread_mutex_lock(&g_state_lock);
+    g_ctx.power = 0;
+    g_ctx.fan_level = 0;
+    g_ctx.swing = 0;
+    apply_to_hardware(&g_ctx);
+    pthread_mutex_unlock(&g_state_lock);
 
+    pthread_mutex_destroy(&g_state_lock);
 
     fan_input_close();
     led_close();
@@ -57,5 +80,6 @@ int main(){
     motor_close();
     servo_close();
 
+    printf("\n[System] All threads and devices cleanly closed.\n");
     return EXIT_SUCCESS;
 }
