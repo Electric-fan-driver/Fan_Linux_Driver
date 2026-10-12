@@ -6,7 +6,7 @@
 
 / {
     overlay-name = "kcci fan project";
-    compatible = "nvidia,p3768-0000+p3767-0005";   /* 보드 compatible로 수정 */
+    compatible = "nvidia,p3768-0000+p3767-0005", "nvidia,p3768-0000+p3767-0005-super";   /* 보드 compatible로 수정 */
 
     fragment@0 {
         target-path = "/";
@@ -22,6 +22,8 @@
                                   <&gpio TEGRA234_MAIN_GPIO(I, 2) GPIO_ACTIVE_HIGH>,
                                   <&gpio TEGRA234_MAIN_GPIO(I, 1) GPIO_ACTIVE_LOW>;
                 debounce-ms = <20>;
+                pinctrl-names = "default";
+                pinctrl-0 = <&fan_input_pins>;
             };
             fan_led {                                    /* A */
                 compatible = "kcci,fan-led";
@@ -29,20 +31,44 @@
                             <&gpio TEGRA234_MAIN_GPIO(Y, 4) GPIO_ACTIVE_HIGH>,
                             <&gpio TEGRA234_MAIN_GPIO(Y, 3) GPIO_ACTIVE_HIGH>,
                             <&gpio TEGRA234_MAIN_GPIO(Y, 1) GPIO_ACTIVE_HIGH>;
+                pinctrl-names = "default";
+                pinctrl-0 = <&fan_led_pins>;
             };
             fan_motor {                                  /* C */
                 compatible = "kcci,fan-motor";
                 pwms = <&pwm7 0 50000>;                  /* 20 kHz */
                 dir-gpios = <&gpio TEGRA234_MAIN_GPIO(Y, 2) GPIO_ACTIVE_HIGH>,   /* IN1 */
                             <&gpio TEGRA234_MAIN_GPIO(I, 0) GPIO_ACTIVE_HIGH>;   /* IN2 */
+                pinctrl-names = "default";
+                pinctrl-0 = <&fan_motor_pins>;
             };
             fan_servo {                                  /* C */
                 compatible = "kcci,fan-servo";
-                pwms = <&pwm5 0 20000000>;               /* 50 Hz */
+                pwms = <&pwm5 0 5000000>;
                 min-pulse-us = <500>;
                 max-pulse-us = <2500>;
                 swing-min-deg = <30>;
                 swing-max-deg = <150>;
+            };
+        };
+    };
+
+    fragment@10 {
+        target = <&pinmux>;
+        __overlay__ {
+            fan_motor_pins: fan-motor-pins {
+                in1 { nvidia,pins = "spi3_mosi_py2";  nvidia,function = "rsvd1"; nvidia,gpio-mode = <0>; nvidia,pull = <1>; nvidia,tristate = <0>; nvidia,enable-input = <0>; nvidia,open-drain = <0>; };
+                in2 { nvidia,pins = "soc_gpio42_pi0"; nvidia,function = "rsvd2"; nvidia,gpio-mode = <0>; nvidia,pull = <1>; nvidia,tristate = <0>; nvidia,enable-input = <0>; nvidia,open-drain = <0>; };
+            };
+            fan_led_pins: fan-led-pins {
+                led1 { nvidia,pins = "spi3_sck_py0"; nvidia,gpio-mode = <0>; nvidia,pull = <1>; nvidia,tristate = <0>; nvidia,enable-input = <0>; nvidia,open-drain = <0>; };
+                led2 { nvidia,pins = "spi3_cs1_py4"; nvidia,gpio-mode = <0>; nvidia,pull = <1>; nvidia,tristate = <0>; nvidia,enable-input = <0>; nvidia,open-drain = <0>; };
+                led3 { nvidia,pins = "spi3_cs0_py3"; nvidia,gpio-mode = <0>; nvidia,pull = <1>; nvidia,tristate = <0>; nvidia,enable-input = <0>; nvidia,open-drain = <0>; };
+                led4 { nvidia,pins = "spi3_miso_py1"; nvidia,gpio-mode = <0>; nvidia,pull = <1>; nvidia,tristate = <0>; nvidia,enable-input = <0>; nvidia,open-drain = <0>; };
+            };
+            fan_input_pins: fan-input-pins {
+                btn-power { nvidia,pins = "soc_gpio32_pq5"; nvidia,gpio-mode = <0>; nvidia,pull = <0>; nvidia,tristate = <1>; nvidia,enable-input = <1>; nvidia,schmitt = <1>; };
+                btn-swing { nvidia,pins = "soc_gpio33_pq6"; nvidia,gpio-mode = <0>; nvidia,pull = <0>; nvidia,tristate = <1>; nvidia,enable-input = <1>; nvidia,schmitt = <1>; };
             };
         };
     };
