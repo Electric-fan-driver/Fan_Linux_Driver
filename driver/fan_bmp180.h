@@ -39,6 +39,8 @@ struct fan_bmp180_measurement {
 
 int fan_bmp180_sensor_init(struct fan_bmp180_data *data,
                            struct i2c_client *client);
+int fan_bmp180_get_temperature(struct fan_bmp180_data *data,
+                                s32 *temperature_mc);
 int fan_bmp180_get_measurement(struct fan_bmp180_data *data,
                                struct fan_bmp180_measurement *result);
 int fan_bmp180_iio_register(struct device *dev, struct iio_dev *indio_dev);

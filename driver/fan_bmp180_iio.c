@@ -16,6 +16,7 @@ static int fan_bmp180_read_raw(
 {
     struct fan_bmp180_data *data = iio_priv(indio_dev);
     struct fan_bmp180_measurement result;
+    s32 temperature_mc;
     int ret;
 
     if (mask != IIO_CHAN_INFO_PROCESSED)
@@ -24,18 +25,23 @@ static int fan_bmp180_read_raw(
     if (chan->type != IIO_TEMP && chan->type != IIO_PRESSURE)
         return -EINVAL;
 
-    ret = fan_bmp180_get_measurement(data, &result);
-    if (ret)
-        return ret;
-
     switch (chan->type) {
     case IIO_TEMP:
+        ret = fan_bmp180_get_temperature(data, &temperature_mc);
+        if (ret)
+            return ret;
+
         /* IIO 온도 입력의 표준 단위: m°C */
-        *val = result.temperature_mc;
+        *val = temperature_mc;
         *val2 = 0;
         return IIO_VAL_INT;
 
     case IIO_PRESSURE:
+        /* 기압 보정에 필요한 온도도 함께 측정한다. */
+        ret = fan_bmp180_get_measurement(data, &result);
+        if (ret)
+            return ret;
+
         /* IIO 기압 입력의 표준 단위: kPa */
         *val = result.pressure_pa / 1000;
         *val2 = (result.pressure_pa % 1000) * 1000;

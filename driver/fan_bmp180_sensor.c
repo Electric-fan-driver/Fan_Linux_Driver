@@ -125,21 +125,14 @@ static int fan_bmp180_read_raw_pressure(struct fan_bmp180_data *data,
     return 0;
 }
 
-static int fan_bmp180_compensate(
+/* 기압 보정에서도 사용하는 온도 보정값 b5를 함께 전달. */
+static int fan_bmp180_compensate_temperature(
     const struct fan_bmp180_calibration *c,
-    u16 ut, u32 up, u8 oss,
-    s32 *temperature_mc, u32 *pressure_pa)
+    u16 ut, s32 *temperature_mc, s64 *b5_out)
 {
-    s64 x1, x2, x3;
-    s64 b3, b5, b6;
+    s64 x1, x2, b5;
     s64 denominator;
     s64 temperature;
-    s64 pressure;
-    u64 b4, b7;
-    u64 pressure_base;
-
-    if (oss > 3)
-        return -EINVAL;
 
     /* 온도 보정 */
     x1 = (((s64)ut - c->ac6) * c->ac5) >> 15;
@@ -155,6 +148,32 @@ static int fan_bmp180_compensate(
     temperature = ((b5 + 8) >> 4) * 100;
     if (temperature < S32_MIN || temperature > S32_MAX)
         return -ERANGE;
+
+    *temperature_mc = (s32)temperature;
+    *b5_out = b5;
+
+    return 0;
+}
+
+static int fan_bmp180_compensate(
+    const struct fan_bmp180_calibration *c,
+    u16 ut, u32 up, u8 oss,
+    s32 *temperature_mc, u32 *pressure_pa)
+{
+    s64 x1, x2, x3;
+    s64 b3, b5, b6;
+    s32 temperature;
+    s64 pressure;
+    u64 b4, b7;
+    u64 pressure_base;
+    int ret;
+
+    if (oss > 3)
+        return -EINVAL;
+
+    ret = fan_bmp180_compensate_temperature(c, ut, &temperature, &b5);
+    if (ret)
+        return ret;
 
     /* 기압 보정 */
     b6 = b5 - 4000;
@@ -199,10 +218,37 @@ static int fan_bmp180_compensate(
     if (pressure <= 0 || pressure > S32_MAX)
         return -ERANGE;
 
-    *temperature_mc = (s32)temperature;
+    *temperature_mc = temperature;
     *pressure_pa = (u32)pressure;
 
     return 0;
+}
+
+/* 온도만 측정·보정. 잠들 수 있는 문맥에서 호출해야 한다.
+ * 실패 시 출력값은 변경하지 않는다. */
+int fan_bmp180_get_temperature(struct fan_bmp180_data *data,
+                                s32 *temperature_mc)
+{
+    u16 raw_temperature;
+    s32 temperature;
+    s64 b5;
+    int ret;
+
+    mutex_lock(&data->lock);
+
+    ret = fan_bmp180_read_raw_temperature(data, &raw_temperature);
+    if (ret)
+        goto out;
+
+    ret = fan_bmp180_compensate_temperature(&data->calib,
+                                            raw_temperature,
+                                            &temperature, &b5);
+    if (!ret)
+        *temperature_mc = temperature;
+
+out:
+    mutex_unlock(&data->lock);
+    return ret;
 }
 
 /*
