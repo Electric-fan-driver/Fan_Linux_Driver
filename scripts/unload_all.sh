@@ -11,7 +11,7 @@ MODULES=(
     fan_motor_driver
     fan_led_driver
     fan_lcd_driver
-    fan_input_core
+    fan_input_driver
     fan_bmp180_driver
 )
 

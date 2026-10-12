@@ -8,12 +8,12 @@ if (( EUID != 0 )); then
 fi
 
 MODULE_FILES=(
-    driver/fan_bmp180_driver.ko
-    driver/fan_input/fan_input_core.ko
-    driver/fan_lcd_driver.ko
-    driver/fan_led_driver.ko
-    driver/fan_motor_driver.ko
-    driver/fan_servo_driver.ko
+    driver/bmp180/fan_bmp180_driver.ko
+    driver/fan_input/fan_input_driver.ko
+    driver/lcd1602/fan_lcd_driver.ko
+    driver/led/fan_led_driver.ko
+    driver/motor/fan_motor_driver.ko
+    driver/servo/fan_servo_driver.ko
 )
 
 # 적재 전에 모든 빌드 결과를 확인한다.
