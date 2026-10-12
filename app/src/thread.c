@@ -1,4 +1,7 @@
 #include <unistd.h>
+#include <errno.h>
+#include <poll.h>
+#include <string.h>
 #include "thread.h"
 #include "fan_ioctl.h"
 #include "shared_state.h"
@@ -26,21 +29,50 @@ static long get_now_ms(void) {
 }
 
 void* input_thread_fn(void* arg){
-    //역할 : 버튼 엔코더 회전 이벤트 감지해서 상태변경
-    /* 스레드 구현 */
-    struct fan_input_event ev;// 내가 버튼 누르면 8바이트 입력 이벤트 구조체로 전달 
+    struct pollfd input = { .fd = fan_input_fd(), .events = POLLIN };
+    (void)arg;
 
-    while(g_running){
-        long now_ms = get_now_ms();
-
-        pthread_mutex_lock(&g_state_lock); // 상태 확인했으니 공유 자원 접근
-
-        fsm_handle_event(&g_ctx, &ev, now_ms);
-
-
-        pthread_mutex_unlock(&g_state_lock); // 락 해제
-
+    if (input.fd < 0) {
+        fprintf(stderr, "[Error] Input device is not open\n");
+        g_running = 0;
+        return NULL;
     }
+    while (g_running) {
+        struct fan_input_event ev;
+        int ret = poll(&input, 1, 100);
+
+        if (ret < 0) {
+            if (errno == EINTR)
+                continue;
+            fprintf(stderr, "[Error] Input poll: %s\n", strerror(errno));
+            break;
+        }
+        if (!ret)
+            continue;
+        if (input.revents & (POLLHUP | POLLNVAL)) {
+            fprintf(stderr, "[Error] Input device disconnected\n");
+            break;
+        }
+        if (!(input.revents & (POLLIN | POLLERR)))
+            continue;
+
+        ret = fan_input_get_event(&ev);
+        if (ret == -EAGAIN)
+            continue;
+        if (ret == -EOVERFLOW) {
+            fprintf(stderr, "[Error] Input event queue overflow; events lost\n");
+            continue;
+        }
+        if (ret) {
+            fprintf(stderr, "[Error] Input read: %s\n", strerror(-ret));
+            break;
+        }
+
+        pthread_mutex_lock(&g_state_lock);
+        fsm_handle_event(&g_ctx, &ev, get_now_ms());
+        pthread_mutex_unlock(&g_state_lock);
+    }
+    g_running = 0;
     return NULL;
 }
 void* timer_thread_fn(void* arg) {

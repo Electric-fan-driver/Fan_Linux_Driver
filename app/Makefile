@@ -1,5 +1,6 @@
 CC = aarch64-linux-gnu-gcc
-CFLAGS = -I../include -Wall -Wextra -O2 -MMD -MP
+CPPFLAGS += -Iinclude -I../include
+CFLAGS = -Wall -Wextra -O2 -MMD -MP
 LDFLAGS := -pthread
 TARGET  := main
 
@@ -14,17 +15,17 @@ all: $(TARGET)
 
 .PHONY: all clean
 
-bmp180_test: src/bmp180.c tests/bmp180_test.c ../include/fan_api.h ../include/fan_ioctl.h
-	$(CC) -I../include -Wall -Wextra -O2 src/bmp180.c tests/bmp180_test.c -o $@
+bmp180_test: src/bmp180.c tests/bmp180_test.c include/fan_api.h ../include/fan_ioctl.h
+	$(CC) $(CPPFLAGS) -Wall -Wextra -O2 src/bmp180.c tests/bmp180_test.c -o $@
 
-lcd_display_test: src/display.c tests/lcd_display_test.c ../include/fan_api.h ../include/fan_ioctl.h
-	$(CC) -I../include -Wall -Wextra -O2 src/display.c tests/lcd_display_test.c -o $@
+lcd_display_test: src/display.c tests/lcd_display_test.c include/fan_api.h ../include/fan_ioctl.h
+	$(CC) $(CPPFLAGS) -Wall -Wextra -O2 src/display.c tests/lcd_display_test.c -o $@
 
 $(TARGET): $(OBJS)
 	$(CC) $(OBJS) -o $@ $(LDFLAGS)
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 -include $(DEPS)
 
