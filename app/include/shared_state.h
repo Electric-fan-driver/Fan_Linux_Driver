@@ -25,12 +25,16 @@ typedef struct {
     PowerMode power;    // 0: OFF, 1: ON
     FanMode mode;   // 0: MAN, 1: AUTO
     int fan_level;   // 1 ~ 4
-    SwingMode swing_on;    // 0: STOP, 1: SWING
+    SwingMode swing;    // 0: STOP, 1: SWING
+    int temp;           // 온도
+    int timer_sec;
+    int display_visible;
 } SystemContext;
 
 // 전역 공유 자원
 extern SystemContext g_ctx;
 extern pthread_mutex_t g_state_lock;
 extern int g_running;
+extern int setting_timer =0;
 
 #endif
