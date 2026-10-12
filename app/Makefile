@@ -17,13 +17,18 @@ DEPS    := $(SRCS:.c=.d)
 
 all: $(TARGET)
 
+.PHONY: all clean
+
+lcd_display_test: src/display.c tests/lcd_display_test.c ../include/fan_api.h ../include/fan_ioctl.h
+	$(CC) -I../include -Wall -Wextra -O2 src/display.c tests/lcd_display_test.c -o $@
+
 $(TARGET): $(OBJS)
-    $(CC) $(OBJS) -o $@ $(LDFLAGS)
+	$(CC) $(OBJS) -o $@ $(LDFLAGS)
 
 %.o: %.c
-    $(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 -include $(DEPS)
 
 clean:
-    rm -f $(OBJS) $(DEPS) $(TARGET)
+	rm -f $(OBJS) $(DEPS) $(TARGET) lcd_display_test
