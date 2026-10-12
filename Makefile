@@ -8,54 +8,68 @@ CROSS_COMPILE ?= aarch64-linux-gnu-
 
 export ARCH CROSS_COMPILE
 
-# --- 1. 유저 애플리케이션 빌드 설정 ---
-CC           := $(CROSS_COMPILE)gcc
-APP_TARGET   := app/fan_app
-APP_SRCS     := $(wildcard app/src/*.c)
-APP_OBJS     := $(APP_SRCS:.c=.o)
-APP_INCLUDES := -Iapp/include -Iinclude
-CFLAGS       += $(APP_INCLUDES) -Wall -O2 -pthread
+# ==============================================================================
+# 1. Kbuild 영역 (커널 빌드 시스템이 M=$(PWD)로 재진입했을 때 실행)
+# ==============================================================================
+ifneq ($(KERNELRELEASE),)
 
-# --- 2. 커널 모듈 (Kbuild) 설정 ---
-# driver 폴더 직하위 드라이버들
-obj-m += driver/fan_bmp180_driver.o
-obj-m += driver/fan_input_driver.o
-obj-m += driver/fan_lcd_driver.o
-obj-m += driver/fan_led_driver.o
-obj-m += driver/fan_motor_driver.o
-obj-m += driver/timer.o
+    # 드라이버 소스 등록
+    obj-m += driver/fan_bmp180_driver.o
+    obj-m += driver/fan_input_driver.o
+    obj-m += driver/fan_lcd_driver.o
+    obj-m += driver/fan_led_driver.o
+    obj-m += driver/fan_motor_driver.o
+    obj-m += driver/timer.o
 
-# driver/fan_input 폴더로 kbuild 진입
-obj-m += driver/fan_input/
+    # 하위 디렉터리 진입
+    obj-m += driver/fan_input/
 
-# 전체 드라이버가 공통 참조할 헤더 경로
-ccflags-y := -I$(PWD)/include
+    # 커널 모듈 공통 헤더 경로 (include 폴더)
+    ccflags-y := -I$(PWD)/include
 
-# --- 타깃 규칙 ---
-.PHONY: all app modules dtbo clean
+# ==============================================================================
+# 2. 일반 Make 영역 (유저가 터미널에서 make를 실행했을 때)
+# ==============================================================================
+else
 
-all: app modules
+    # --- 유저 애플리케이션 빌드 설정 ---
+    CC           := $(CROSS_COMPILE)gcc
+    APP_TARGET   := app/fan_app
+    
+    # [수정] test_fsm_mock.c 제외 처리 (필요 시 수정)
+    ALL_SRCS     := $(wildcard app/src/*.c)
+    APP_SRCS     := $(filter-out app/src/test_fsm_mock.c, $(ALL_SRCS))
+    APP_OBJS     := $(APP_SRCS:.c=.o)
+    
+    APP_INCLUDES := -Iapp/include -Iinclude
+    CFLAGS       += $(APP_INCLUDES) -Wall -O2 -pthread
 
-# 유저 앱 빌드
-app: $(APP_TARGET)
+    .PHONY: all app modules dtbo clean
 
-$(APP_TARGET): $(APP_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
+    all: app modules
 
-app/src/%.o: app/src/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
+    # 유저 앱 빌드
+    app: $(APP_TARGET)
 
-# 커널 모듈 전체 빌드
-modules:
-	$(MAKE) -C $(KDIR) M=$(PWD) modules
+    $(APP_TARGET): $(APP_OBJS)
+		$(CC) $(CFLAGS) -o $@ $^
 
-# 디바이스 트리 오버레이 빌드 (.dtbo)
-dtbo: dts/fan-overlay.dtbo
+    app/src/%.o: app/src/%.c
+		$(CC) $(CFLAGS) -c $< -o $@
 
-dts/fan-overlay.dtbo: dts/fan-overlay.dts
-	dtc -@ -I dts -O dtb -o $@ $<
+    # 커널 모듈 빌드
+    modules:
+		$(MAKE) -C $(KDIR) M=$(PWD) modules
 
-# 클린업
-clean:
-	$(MAKE) -C $(KDIR) M=$(PWD) clean
-	rm -f $(APP_TARGET) $(APP_OBJS) dts/*.dtbo
+    # 디바이스 트리 오버레이 빌드 (.dtbo)
+    dtbo: dts/fan-overlay.dtbo
+
+    dts/fan-overlay.dtbo: dts/fan-overlay.dts
+		dtc -@ -I dts -O dtb -o $@ $<
+
+    # 클린업
+    clean:
+		$(MAKE) -C $(KDIR) M=$(PWD) clean
+		rm -f $(APP_TARGET) $(APP_OBJS) dts/*.dtbo
+
+endif
