@@ -15,7 +15,6 @@ ifneq ($(KERNELRELEASE),)
 
     # 드라이버 소스 등록
     obj-m += driver/fan_bmp180_driver.o
-    obj-m += driver/fan_input_driver.o
     obj-m += driver/fan_lcd_driver.o
     obj-m += driver/fan_led_driver.o
     obj-m += driver/fan_motor_driver.o
