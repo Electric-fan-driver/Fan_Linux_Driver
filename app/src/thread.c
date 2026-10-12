@@ -29,7 +29,6 @@ void* input_thread_fn(void* arg){
     //역할 : 버튼 엔코더 회전 이벤트 감지해서 상태변경
     /* 스레드 구현 */
     struct fan_input_event ev;// 내가 버튼 누르면 8바이트 입력 이벤트 구조체로 전달 
-    SystemContext copy_run_value;// 공유자원 변경한 거를 공유자원은 그대로 두고 복사해서 하드웨어에 넘기기 
 
     while(g_running){
         long now_ms = get_now_ms();
@@ -38,7 +37,6 @@ void* input_thread_fn(void* arg){
 
         fsm_handle_event(&g_ctx, &ev, now_ms);
 
-        copy_run_value = g_ctx;
 
         pthread_mutex_unlock(&g_state_lock); // 락 해제
 
@@ -86,7 +84,7 @@ void* timer_thread_fn(void* arg) {
 }
 
 void* sensor_thread_fn(void* arg) {
-    SystemContext copy_run_value;
+    
 
     while (g_running) {
         int temp_raw = 0;
@@ -94,8 +92,8 @@ void* sensor_thread_fn(void* arg) {
         if (ret == 0) {
             pthread_mutex_lock(&g_state_lock);
             g_ctx.temp = temp_raw;
-            int changed = fsm_auto_mode(&g_ctx, temp_raw / 10);
-            copy_run_value = g_ctx;
+            fsm_auto_mode(&g_ctx, temp_raw / 10);
+        
 
             pthread_mutex_unlock(&g_state_lock);
         }
