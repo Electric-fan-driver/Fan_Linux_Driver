@@ -45,19 +45,6 @@ BMP180은 IIO sysfs로 온도·기압을 제공하며, 나머지 장치의 인�
 | `/sys/bus/iio/devices/iio:deviceX/` | `fan_bmp180_main.c`, `fan_bmp180_sensor.c`, `fan_bmp180_iio.c` | IIO sysfs 읽기 | `name`이 `fan_bmp180`인 장치의 `in_temp_input`(m°C), `in_pressure_input`(kPa) 읽기 |
 | `/dev/lcd1602` | `fan_lcd_driver.c` | `pwrite`, `ioctl` | PCF8574 기반 HD44780 제어, 영역별 부분 갱신 및 백라이트 제어 |
 
-### BMP180 앱 측정 테스트
-
-BMP180 IIO 드라이버를 로드한 뒤 저장소 루트에서 실행합니다.
-
-```bash
-make -C app bmp180_test
-./app/bmp180_test
-```
-
-앱은 `name`이 `fan_bmp180`인 IIO 장치를 자동으로 찾고, 1초마다 온도(C)와 기압(hPa)을 출력합니다. `Ctrl+C`로 종료합니다. `app/src/bmp180.c`의 API는 성공 시 0, 실패 시 음수 errno를 반환합니다. `bmp180_get_measurement()`는 온도(0.1°C 단위 정수)와 기압(Pa)을 함께 전달하며, 두 sysfs 파일은 각각 별도의 측정을 요청합니다.
-
-`bmp180_get_temperature()`로 온도만 요청하면 커널도 온도만 측정·보정하며 기압 변환을 수행하지 않습니다. IIO의 `in_temp_input`은 m°C 단위(예: `24600` = 24.6°C)를 유지하고, 앱 API는 이를 0.1°C 단위 정수(`246`)로 변환합니다. 기압 요청은 보정에 필요한 온도도 함께 측정하므로, 앱에서 두 sysfs 파일을 모두 읽으면 온도 변환은 두 번 수행됩니다.
-
 ---
 
 ## ✨ 핵심 기능 (Key Features)
