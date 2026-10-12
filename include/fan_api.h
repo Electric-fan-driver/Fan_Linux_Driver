@@ -4,13 +4,13 @@
 
 #include "fan_ioctl.h"   /* struct fan_input_event */
 
-/* A: input.c (D: input_sim.c — 같은 함수, SIM=1 로 선택) */
+/* A: input.c */
 int  fan_input_open(void);
 void fan_input_close(void);
 int  fan_input_fd(void);                               /* epoll 등록용 */
 int  fan_input_get_event(struct fan_input_event *ev);  /* 비대기, 없으면 -EAGAIN */
 
-/* A: timer.c — Timer 하위 FSM (3.3장). 장치 없는 순수 로직, 시간은 CLOCK_MONOTONIC ms */
+/* A: timer.c */
 void timer_reset(void);                                /* IDLE, 00:00:00 */
 void timer_rotate(int dir, long now_ms);               /* 엔코더 +1 / -1 */
 void timer_button(long now_ms);                        /* SETTING: 확정, RUNNING: 취소 */
@@ -27,7 +27,7 @@ int  bmp180_open(void);
 void bmp180_close(void);
 int  bmp180_get_temperature(int *temp_x10);           /* 246 = 24.6℃ */
 
-/* B: display.c — 칸 위치는 B만 안다 */
+/* B: display.c  */
 int  lcd_open(void);
 void lcd_close(void);
 int  lcd_clear(void);

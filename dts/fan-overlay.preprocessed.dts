@@ -1,0 +1,62 @@
+/dts-v1/;
+/plugin/;
+/ {
+    overlay-name = "kcci fan project";
+    compatible = "nvidia,p3768-0000+p3767-0005";
+    fragment@0 {
+        target-path = "/";
+        __overlay__ {
+            fan_input {
+                compatible = "kcci,fan-input";
+                power-gpios = <&gpio ((15 * 8) + 5) 1>;
+                swing-gpios = <&gpio ((15 * 8) + 6) 1>;
+                enc-fan-gpios = <&gpio ((16 * 8) + 4) 0>,
+                                  <&gpio ((16 * 8) + 5) 0>,
+                                  <&gpio ((20 * 8) + 6) 1>;
+                enc-timer-gpios = <&gpio ((7 * 8) + 7) 0>,
+                                  <&gpio ((8 * 8) + 2) 0>,
+                                  <&gpio ((8 * 8) + 1) 1>;
+                debounce-ms = <20>;
+            };
+            fan_led {
+                compatible = "kcci,fan-led";
+                led-gpios = <&gpio ((18 * 8) + 0) 0>,
+                            <&gpio ((18 * 8) + 4) 0>,
+                            <&gpio ((18 * 8) + 3) 0>,
+                            <&gpio ((18 * 8) + 1) 0>;
+            };
+            fan_motor {
+                compatible = "kcci,fan-motor";
+                pwms = <&pwm7 0 50000>;
+                dir-gpios = <&gpio ((18 * 8) + 2) 0>,
+                            <&gpio ((8 * 8) + 0) 0>;
+            };
+            fan_servo {
+                compatible = "kcci,fan-servo";
+                pwms = <&pwm5 0 20000000>;
+                min-pulse-us = <500>;
+                max-pulse-us = <2500>;
+                swing-min-deg = <30>;
+                swing-max-deg = <150>;
+            };
+        };
+    };
+    fragment@1 {
+        target-path = "/bus@0/i2c@c250000";
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            bmp180@77 { compatible = "kcci,bmp180"; reg = <0x77>; };
+        };
+    };
+    fragment@2 {
+ target-path = "/bus@0/i2c@c240000";
+ __overlay__ {
+     #address-cells = <1>;
+     #size-cells = <0>;
+            lcd1602a@27 { compatible = "kcci,lcd1602"; reg = <0x27>; };
+        };
+    };
+    fragment@3 { target = <&pwm7>; __overlay__ { status = "okay"; }; };
+    fragment@4 { target = <&pwm5>; __overlay__ { status = "okay"; }; };
+};

@@ -36,14 +36,14 @@ NVIDIA Jetson 기반 임베디드 리눅스 환경에서 커스텀 디바이스 
 
 ### 2. 커널 드라이버 및 인터페이스 명세
 
-모든 드라이버는 `miscdevice`로 동적 등록되며 공용 헤더(`fan_ioctl.h`)를 통해 통신합니다.
+BMP180은 IIO sysfs로 온도·기압을 제공하며, 나머지 장치의 인터페이스는 아래 표를 따릅니다.
 
 | 장치 노드 | 소스 파일 | 통신 방식 | 설명 |
 | :--- | :--- | :--- | :--- |
 | `/dev/fan_input` | `fan_input_driver.c` | `read`, `poll` | 8바이트 이벤트 구조체(`struct fan_input_event`) 반환, 소프트웨어 디바운스 적용 |
 | `/dev/fan_motor` | `fan_motor_driver.c` | `ioctl` | 모터 풍량 레벨(0~4) 설정, 기동 시 200ms 킥스타트(100% 듀티) 적용 |
 | `/dev/fan_led` | `fan_led_driver.c` | `ioctl` | 풍량 레벨(0~4)에 따른 LED 단계 점등 제어 |
-| `/dev/bmp180` | `fan_bmp180_driver.c` | `read` | 0.1℃ 단위 정수 문자열 출력 (예: `"246\n"` = 24.6℃) |
+| `/sys/bus/iio/devices/iio:deviceX/` | `fan_bmp180_main.c`, `fan_bmp180_sensor.c`, `fan_bmp180_iio.c` | IIO sysfs 읽기 | `name`이 `fan_bmp180`인 장치의 `in_temp_input`(m°C), `in_pressure_input`(kPa) 읽기 |
 | `/dev/lcd1602` | `fan_lcd_driver.c` | `pwrite`, `ioctl` | PCF8574 기반 HD44780 제어, 영역별 부분 갱신 및 백라이트 제어 |
 
 ---
@@ -80,14 +80,28 @@ Fan_Linux_Driver/
 │   │   ├── display.c           # LCD 출력 모듈 구현
 │   │   ├── input.c             # 버튼/엔코더 입력 처리 모듈
 │   │   ├── led.c               # LED 제어 모듈
-│   │   ├── main.c              # 메인 이벤트 루프 및 FSM 제어
+│   │   ├── main.c              # 실제 BMP180 온도를 LCD에 표시하는 데모
 │   │   ├── motor.c             # 모터 구동 인터페이스 모듈
 │   │   └── timer.c             # 타이머 로직 및 시간 계산
-│   └── Makefile                # 애플리케이션 빌드 Makefile
+│   ├── tests/
+│   │   ├── bmp180_test.c       # BMP180 온도 읽기 테스트
+│   │   ├── lcd_test.c          # 사용자 공간 직접 I2C 출력 테스트
+│   │   ├── lcd_device_test.c   # LCD 문자 장치 pwrite/ioctl 테스트
+│   │   └── lcd_display_test.c  # 앱 API로 가상 온도 표시 테스트
+│   └── Makefile                # 데모 및 테스트 앱 빌드
 ├── driver/
-│   ├── fan_bmp180_driver.c     # BMP180 I2C 커널 드라이버
+│   ├── Makefile                # 장치별 소스 자동 탐색 및 커널 모듈 빌드
+│   ├── bmp180/
+│   │   ├── fan_bmp180.h        # 공유 구조체 및 함수 선언
+│   │   ├── fan_bmp180_main.c   # DT 매칭, probe/remove
+│   │   ├── fan_bmp180_sensor.c # 초기화, SCO 완료 확인, 측정 및 보정
+│   │   └── fan_bmp180_device.c # /dev/bmp180 등록 및 온도 read 인터페이스
+│   ├── lcd1602/
+│   │   ├── fan_lcd.h           # 공유 구조체 및 함수 선언
+│   │   ├── fan_lcd_main.c      # DT 매칭, probe/remove
+│   │   ├── fan_lcd_hw.c        # PCF8574 전송 및 HD44780 초기화·출력
+│   │   └── fan_lcd_device.c    # /dev/lcd1602 등록 및 pwrite/ioctl 인터페이스
 │   ├── fan_input_driver.c      # GPIO IRQ & 디바운스 입력 드라이버
-│   ├── fan_lcd_driver.c        # HD44780 + PCF8574 LCD I2C 드라이버
 │   ├── fan_led_driver.c        # GPIO 배열 LED 드라이버
 │   ├── fan_motor_driver.c      # L298N PWM 모터 드라이버
 │   └── init.txt                # 드라이버 설정 및 메모

@@ -14,3 +14,6 @@
 # Editor artifacts
 .vscode/
 *~
+
+# Application test binary
+/app/bmp180_test

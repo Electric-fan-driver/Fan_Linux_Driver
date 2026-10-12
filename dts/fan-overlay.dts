@@ -53,12 +53,20 @@
             #address-cells = <1>;
             #size-cells = <0>;
             bmp180@77 { compatible = "kcci,bmp180";  reg = <0x77>; };
-            lcd@27    { compatible = "kcci,lcd1602"; reg = <0x27>; };
         };
     };
 
-    fragment@2 { target = <&pwm7>; __overlay__ { status = "okay"; }; };
-    fragment@3 { target = <&pwm5>; __overlay__ { status = "okay"; }; };
+    fragment@2 { 
+	target-path = "/bus@0/i2c@c240000";
+	__overlay__ {
+	    #address-cells = <1>;
+	    #size-cells = <0>;
+            lcd1602a@27 { compatible = "kcci,lcd1602"; reg = <0x27>; };
+        };    
+    };
+
+    fragment@3 { target = <&pwm7>; __overlay__ { status = "okay"; }; };
+    fragment@4 { target = <&pwm5>; __overlay__ { status = "okay"; }; };
 
     /* pinmux(입력 허용 등)는 보드 DT에서 핀 노드 이름을 확인해 추가한다 (12장) */
 };
