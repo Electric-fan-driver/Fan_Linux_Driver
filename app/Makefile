@@ -1,15 +1,11 @@
 CC = aarch64-linux-gnu-gcc
-CFLAGS = -c -Iinclude -Wall
+CFLAGS = -I../include -Wall -Wextra -O2 -MMD -MP
 LDFLAGS := -pthread
 
 TARGET  := main
 
-# 컴파일할 소스 파일 목록  추후 변경
-# SRCS    := src/main.c \
-#            src/queue.c \
-#            src/core/state_machine.c \
-#            src/core/threads.c \
-#            src/hal/hal_driver.c
+# 실제 BMP180 온도를 LCD에 표시하는 데모
+SRCS := src/main.c src/bmp180.c src/display.c
 
 # 오브젝트 파일 및 의존성 파일
 OBJS    := $(SRCS:.c=.o)
@@ -34,5 +30,4 @@ $(TARGET): $(OBJS)
 -include $(DEPS)
 
 clean:
-	rm -f $(OBJS) $(DEPS) $(TARGET) bmp180_test lcd_test
-	rm -f $(OBJS) $(DEPS) $(TARGET) lcd_display_test
+	rm -f $(OBJS) $(DEPS) $(TARGET) bmp180_test lcd_test lcd_display_test
