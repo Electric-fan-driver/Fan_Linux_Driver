@@ -3,10 +3,10 @@
 
 #include <linux/types.h>
 #include <linux/mutex.h>
+#include <linux/kref.h>
+#include <linux/miscdevice.h>
 
 struct i2c_client;
-struct iio_dev;
-struct device;
 
 struct fan_bmp180_calibration {
     s16 ac1;
@@ -26,6 +26,9 @@ struct fan_bmp180_data {
     struct i2c_client *client;
     struct fan_bmp180_calibration calib;
     struct mutex lock;
+    struct kref ref;
+    struct miscdevice misc;
+    bool online;
     u8 chip_id;
     u8 oss;
 };
@@ -43,6 +46,8 @@ int fan_bmp180_get_temperature(struct fan_bmp180_data *data,
                                 s32 *temperature_mc);
 int fan_bmp180_get_measurement(struct fan_bmp180_data *data,
                                struct fan_bmp180_measurement *result);
-int fan_bmp180_iio_register(struct device *dev, struct iio_dev *indio_dev);
+void fan_bmp180_free(struct kref *ref);
+int fan_bmp180_device_register(struct fan_bmp180_data *data);
+void fan_bmp180_device_unregister(struct fan_bmp180_data *data);
 
 #endif /* FAN_BMP180_H */

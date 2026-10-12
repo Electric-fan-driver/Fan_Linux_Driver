@@ -7,19 +7,20 @@
 
 #include "fan_bmp180.h"
 
-#define BMP180_CHIP_ID_REG   0xD0
-#define BMP180_CHIP_ID       0x55
-#define BMP180_CALIB_START   0xAA
-#define BMP180_CALIB_BYTES   22
-#define BMP180_CTRL_MEAS_REG 0xF4
-#define BMP180_OUT_MSB_REG   0xF6
-#define BMP180_TEMP_CMD      0x2E
-#define BMP180_PRESS_CMD     0x34
-#define BMP180_SCO           BIT(5)
-#define BMP180_POLL_US       500
+#define BMP180_CHIP_ID_REG   0xD0        // can be used to check whether communication is functioning
+#define BMP180_CHIP_ID       0x55    
+#define BMP180_CALIB_START   0xAA        // AC1 parameter MSB
+#define BMP180_CTRL_MEAS_REG 0xF4        // Controls measurements
+#define BMP180_OUT_MSB_REG   0xF6        // adc_out_msb<7:0>
+#define BMP180_TEMP_CMD      0x2E        // write 0x2E to read uncompensated temperature value
+#define BMP180_PRESS_CMD     0x34        // write 0x34 to read uncompensated pressure value
+#define BMP180_SCO           BIT(5)      // Start of conversion
+#define BMP180_POLL_US       500      
 #define BMP180_TIMEOUT_MARGIN_US 5000
 
-/* 호출자가 data->lock을 유지한다. SCO=0이면 결과 레지스터가 준비됨.
+/* 호출자가 data->lock을 유지한다. 
+* SCO = 0 -> The value of this bit stays “1” during conversion 
+* and is reset to “0” after conversion is complete
  * 최대 변환 시간에 여유를 더해 센서가 멈춰도 무한 대기하지 않는다. */
 static int fan_bmp180_wait_conversion(struct fan_bmp180_data *data,
                                       unsigned int conversion_us)
@@ -263,6 +264,11 @@ int fan_bmp180_get_temperature(struct fan_bmp180_data *data,
 
     mutex_lock(&data->lock);
 
+    if (!data->online) {
+        ret = -ENODEV;
+        goto out;
+    }
+
     ret = fan_bmp180_read_raw_temperature(data, &raw_temperature);
     if (ret)
         goto out;
@@ -296,6 +302,11 @@ int fan_bmp180_get_measurement(
     int ret;
 
     mutex_lock(&data->lock);
+
+    if (!data->online) {
+        ret = -ENODEV;
+        goto out;
+    }
 
     oss = data->oss;
 

@@ -1,39 +1,57 @@
 #include <linux/module.h>
 #include <linux/i2c.h>
 #include <linux/of.h>
-#include <linux/iio/iio.h>
+#include <linux/slab.h>
 
 #include "fan_bmp180.h"
 
 static int fan_bmp180_probe(struct i2c_client *client)
 {
-    struct iio_dev *indio_dev;
     struct fan_bmp180_data *data;
     int ret;
 
-    indio_dev = devm_iio_device_alloc(&client->dev, sizeof(*data));
-    if (!indio_dev)
+    data = kzalloc(sizeof(*data), GFP_KERNEL);
+    if (!data)
         return -ENOMEM;
 
-    data = iio_priv(indio_dev);
+    kref_init(&data->ref);
 
     ret = fan_bmp180_sensor_init(data, client);
     if (ret)
-        return ret;
+        goto free_data;
 
-    ret = fan_bmp180_iio_register(&client->dev, indio_dev);
+    data->online = true;
+    ret = fan_bmp180_device_register(data);
     if (ret) {
         dev_err(&client->dev,
-                "IIO registration failed: %d\n", ret);
-        return ret;
+                "Character device registration failed: %d\n", ret);
+        goto free_data;
     }
 
-    i2c_set_clientdata(client, indio_dev);
+    i2c_set_clientdata(client, data);
 
     dev_info(&client->dev,
-             "Chip ID verified: 0x%02x, IIO device registered\n",
+             "Chip ID verified: 0x%02x, /dev/bmp180 registered\n",
              data->chip_id);
 
+    return 0;
+
+free_data:
+    kref_put(&data->ref, fan_bmp180_free);
+    return ret;
+}
+
+static int fan_bmp180_remove(struct i2c_client *client)
+{
+    struct fan_bmp180_data *data = i2c_get_clientdata(client);
+
+    fan_bmp180_device_unregister(data);
+    mutex_lock(&data->lock);
+    data->online = false;
+    data->client = NULL;
+    mutex_unlock(&data->lock);
+    i2c_set_clientdata(client, NULL);
+    kref_put(&data->ref, fan_bmp180_free);
     return 0;
 }
 
@@ -49,9 +67,10 @@ static struct i2c_driver fan_bmp180_driver = {
         .of_match_table = fan_bmp180_of_match,
     },
     .probe_new = fan_bmp180_probe,
+    .remove = fan_bmp180_remove,
 };
 
 module_i2c_driver(fan_bmp180_driver);
 
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("Fan BMP180 IIO temperature and pressure driver");
+MODULE_DESCRIPTION("Fan BMP180 temperature character device driver");

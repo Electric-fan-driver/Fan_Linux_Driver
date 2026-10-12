@@ -26,7 +26,6 @@ int  led_set_level(int level);                         /* 0~4 */
 int  bmp180_open(void);
 void bmp180_close(void);
 int  bmp180_get_temperature(int *temp_x10);           /* 246 = 24.6℃ */
-int  bmp180_get_measurement(int *temp_x10, int *pressure_pa); /* IIO 파일별 측정 */
 
 /* B: display.c  */
 int  lcd_open(void);

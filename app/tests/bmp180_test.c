@@ -11,7 +11,6 @@ int main(void)
 {
     struct timespec next;
     int temperature;
-    int pressure;
     int ret;
 
     ret = bmp180_open();
@@ -29,14 +28,13 @@ int main(void)
     puts("BMP180: reading every second. Stop with Ctrl+C.");
 
     for (;;) {
-        ret = bmp180_get_measurement(&temperature, &pressure);
+        ret = bmp180_get_temperature(&temperature);
         if (ret) {
             fprintf(stderr, "BMP180 read failed: %s\n", strerror(-ret));
             break;
         }
 
-        printf("Temperature: %.1f C | Pressure: %.2f hPa\n",
-               temperature / 10.0, pressure / 100.0);
+        printf("Temperature: %.1f C\n", temperature / 10.0);
         fflush(stdout);
 
         next.tv_sec++;
