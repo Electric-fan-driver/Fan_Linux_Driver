@@ -22,8 +22,8 @@ all: $(TARGET)
 bmp180_test: src/bmp180.c tests/bmp180_test.c ../include/fan_api.h ../include/fan_ioctl.h
 	$(CC) -I../include -Wall -Wextra -O2 src/bmp180.c tests/bmp180_test.c -o $@
 
-lcd_test: tests/lcd_test.c
-	$(CC) -Wall -Wextra -O2 $< -o $@
+lcd_display_test: src/display.c tests/lcd_display_test.c ../include/fan_api.h ../include/fan_ioctl.h
+	$(CC) -I../include -Wall -Wextra -O2 src/display.c tests/lcd_display_test.c -o $@
 
 $(TARGET): $(OBJS)
 	$(CC) $(OBJS) -o $@ $(LDFLAGS)
@@ -35,3 +35,4 @@ $(TARGET): $(OBJS)
 
 clean:
 	rm -f $(OBJS) $(DEPS) $(TARGET) bmp180_test lcd_test
+	rm -f $(OBJS) $(DEPS) $(TARGET) lcd_display_test
