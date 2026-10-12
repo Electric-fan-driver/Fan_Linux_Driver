@@ -58,6 +58,7 @@ static int handle_fan_rotate(SystemContext *ctx, int delta) {
 // 타이머 엔코더 회전
 static int handle_timer_rotate(int delta, long now_ms) {
     setting_timer = 1;
+    timer_blink_start_ms = now_ms;      // 돌린 순간부터 보이고 그 뒤로 깜빡임
     timer_rotate(delta, now_ms);
     return 1;
 }

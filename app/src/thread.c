@@ -11,6 +11,7 @@ SystemContext g_ctx = { 0, 0, 0, 0, 0, 0, 0 };
 pthread_mutex_t g_state_lock;
 volatile int g_running = 1;
 int setting_timer =0;
+long timer_blink_start_ms = 0;
 
 extern int fsm_handle_event(SystemContext *ctx, const struct fan_input_event *ev, long now_ms);
 extern void apply_to_hardware(const SystemContext *copy);
@@ -97,7 +98,8 @@ void* timer_thread_fn(void* arg) {
 
             timer_get_display(&g_ctx.timer_sec, &g_ctx.display_visible, now_ms);
             if (setting_timer) {
-                g_ctx.display_visible = ((now_ms / 500) % 2 == 0);
+                // 돌린 순간부터 0.25초 보임, 0.25초 꺼짐을 반복 (깜빡임 주기 0.5초)
+                g_ctx.display_visible = (((now_ms - timer_blink_start_ms) / 250) % 2 == 0);
             }
         }
 
@@ -124,7 +126,7 @@ void* sensor_thread_fn(void* arg) {
         if (ret == 0) {
             pthread_mutex_lock(&g_state_lock);
             g_ctx.temp = temp_raw;
-            fsm_auto_mode(&g_ctx, temp_raw / 10);
+            fsm_auto_mode(&g_ctx, temp_raw);   // 0.1도 단위 그대로 넘김 (264 = 26.4도)
         
 
             pthread_mutex_unlock(&g_state_lock);
