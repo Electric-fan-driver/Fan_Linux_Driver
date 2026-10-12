@@ -126,7 +126,7 @@ void* sensor_thread_fn(void* arg) {
         if (ret == 0) {
             pthread_mutex_lock(&g_state_lock);
             g_ctx.temp = temp_raw;
-            fsm_auto_mode(&g_ctx, temp_raw / 10);
+            fsm_auto_mode(&g_ctx, temp_raw);   // 0.1도 단위 그대로 넘김 (264 = 26.4도)
         
 
             pthread_mutex_unlock(&g_state_lock);
