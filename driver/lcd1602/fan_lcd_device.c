@@ -5,7 +5,7 @@
 #include <linux/compat.h>
 
 #include "fan_lcd.h"
-#include "../include/fan_ioctl.h"
+#include "fan_ioctl.h"
 
 void fan_lcd_free(struct kref *ref)
 {
