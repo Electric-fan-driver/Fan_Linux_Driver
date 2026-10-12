@@ -26,7 +26,6 @@ void* input_thread_fn(void* arg){
     SystemContext copy_run_value;// 공유자원 변경한 거를 공유자원은 그대로 두고 복사해서 하드웨어에 넘기기 
 
     while(g_running){
-        int changed = 0;
         int ret = fan_input_get_event(&ev);
         long now_ms = get_now_ms();
 
@@ -43,9 +42,6 @@ void* input_thread_fn(void* arg){
 
         pthread_mutex_unlock(&g_state_lock); // 락 해제
 
-        if (changed) {
-            apply_to_hardware(&copy_run_value);
-        }
     }
     return NULL;
 }
