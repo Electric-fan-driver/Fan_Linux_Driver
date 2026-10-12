@@ -10,6 +10,7 @@
 #define BMP180_CHIP_ID_REG   0xD0        // can be used to check whether communication is functioning
 #define BMP180_CHIP_ID       0x55    
 #define BMP180_CALIB_START   0xAA        // AC1 parameter MSB
+#define BMP180_CALIB_BYTES   22          // 11 calibration words, 2 bytes each
 #define BMP180_CTRL_MEAS_REG 0xF4        // Controls measurements
 #define BMP180_OUT_MSB_REG   0xF6        // adc_out_msb<7:0>
 #define BMP180_TEMP_CMD      0x2E        // write 0x2E to read uncompensated temperature value
