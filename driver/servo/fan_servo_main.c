@@ -1,6 +1,7 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/of.h>
 #include <linux/property.h>
 #include <linux/pwm.h>
 #include <linux/miscdevice.h>
