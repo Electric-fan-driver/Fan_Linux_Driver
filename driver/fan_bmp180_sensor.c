@@ -3,6 +3,7 @@
 #include <linux/delay.h>
 #include <linux/math64.h>
 #include <linux/limits.h>
+#include <linux/iopoll.h>
 
 #include "fan_bmp180.h"
 
@@ -14,6 +15,28 @@
 #define BMP180_OUT_MSB_REG   0xF6
 #define BMP180_TEMP_CMD      0x2E
 #define BMP180_PRESS_CMD     0x34
+#define BMP180_SCO           BIT(5)
+#define BMP180_POLL_US       500
+#define BMP180_TIMEOUT_MARGIN_US 5000
+
+/* 호출자가 data->lock을 유지한다. SCO=0이면 결과 레지스터가 준비됨.
+ * 최대 변환 시간에 여유를 더해 센서가 멈춰도 무한 대기하지 않는다. */
+static int fan_bmp180_wait_conversion(struct fan_bmp180_data *data,
+                                      unsigned int conversion_us)
+{
+    int status;
+    int ret;
+
+    ret = read_poll_timeout(i2c_smbus_read_byte_data, status,
+                            status < 0 || !(status & BMP180_SCO),
+                            BMP180_POLL_US,
+                            conversion_us + BMP180_TIMEOUT_MARGIN_US,
+                            false, data->client, BMP180_CTRL_MEAS_REG);
+    if (status < 0)
+        return status;
+
+    return ret;
+}
 
 /* 초기화 시 한 번 읽어 저장 */
 static int fan_bmp180_read_calibration(struct fan_bmp180_data *data)
@@ -73,7 +96,9 @@ static int fan_bmp180_read_raw_temperature(struct fan_bmp180_data *data,
     if (ret < 0)
         return ret;
 
-    msleep(5);
+    ret = fan_bmp180_wait_conversion(data, 4500);
+    if (ret)
+        return ret;
 
     for (i = 0; i < ARRAY_SIZE(buf); i++) {
         ret = i2c_smbus_read_byte_data(data->client,
@@ -93,7 +118,7 @@ static int fan_bmp180_read_raw_temperature(struct fan_bmp180_data *data,
 static int fan_bmp180_read_raw_pressure(struct fan_bmp180_data *data,
                                        u8 oss, u32 *up)
 {
-    static const unsigned int wait_ms[] = { 5, 8, 14, 26 };
+    static const unsigned int conversion_us[] = { 4500, 7500, 13500, 25500 };
     u8 buf[3];
     int ret;
     int i;
@@ -107,7 +132,9 @@ static int fan_bmp180_read_raw_pressure(struct fan_bmp180_data *data,
     if (ret < 0)
         return ret;
 
-    msleep(wait_ms[oss]);
+    ret = fan_bmp180_wait_conversion(data, conversion_us[oss]);
+    if (ret)
+        return ret;
 
     for (i = 0; i < ARRAY_SIZE(buf); i++) {
         ret = i2c_smbus_read_byte_data(data->client,
