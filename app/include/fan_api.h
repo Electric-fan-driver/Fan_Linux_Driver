@@ -31,7 +31,7 @@ int  bmp180_get_temperature(int *temp_x10);           /* 246 = 24.6℃ */
 int  lcd_open(void);
 void lcd_close(void);
 int  lcd_clear(void);
-int  lcd_set_backlight(int enable);
+//int  lcd_set_backlight(int enable);
 int  lcd_show_mode(int auto_mode);                     /* "MAN " / "AUTO" */
 int  lcd_show_timer(int sec, int visible);             /* visible=0 → 공백 8칸 */
 int  lcd_show_temp(int temp_x10, int valid);           /* valid=0 → "--.-°C" */

@@ -1,11 +1,10 @@
 CC = aarch64-linux-gnu-gcc
 CFLAGS = -I../include -Wall -Wextra -O2 -MMD -MP
 LDFLAGS := -pthread
-
 TARGET  := main
 
-# 실제 BMP180 온도를 LCD에 표시하는 데모
-SRCS := src/main.c src/bmp180.c src/display.c
+# 컴파일할 소스 파일 목록
+SRCS    := $(wildcard src/*.c)        
 
 # 오브젝트 파일 및 의존성 파일
 OBJS    := $(SRCS:.c=.o)

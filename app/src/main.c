@@ -2,81 +2,65 @@
 #include <errno.h>
 #include <signal.h>
 #include <stdio.h>
-#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <stdint.h>
+#include <errno.h>
 #include <time.h>
-
+#include <sys/timerfd.h>
 #include "fan_api.h"
+#include "shared_state.h"
+#include "thread.h"
 
-static volatile sig_atomic_t stop;
+//메인 스레드(전체 시스템 초기화, 종료 시그널(SIGINT) 대기 및 자원 정리, 스레드 생명주기, 우선순위 관리)
+// 입력 감지 스레드(엔코더 돌리기, 엔코더 버튼, 전원 스위치, 회전 스위치)
+// 타이머 스레드
+// 센서스레드(온도)
+//공유자원(뮤텍스 걸어야할 것들)
+// 전원상태(입력스레드, 센서, 타이머 스레드가 관여)
+// 동작 모드( 입력스레드, 센서 스레드가 관여)
+// 회전 상태(입력, 타이머 스레드가 관여)
+// 풍량 상태
 
-static void handle_stop(int signal_number)
-{
-    (void)signal_number;
-    stop = 1;
-}
 
-int main(void)
-{
-    struct sigaction action = { .sa_handler = handle_stop };
-    struct timespec next;
+//스레드 별 우선순위 관리
+//1순위 : 입력스레드
+//2순위 : 타이머 스레드
+//3숭뉘 : 센서 스레드
+
+
+
+int main(void) {
     int ret;
-    int status = 1;
 
-    sigemptyset(&action.sa_mask);
-    if (sigaction(SIGINT, &action, NULL) < 0 ||
-        sigaction(SIGTERM, &action, NULL) < 0) {
-        perror("sigaction");
-        return 1;
+    fan_input_open();
+    led_open();
+    bmp180_open();
+    lcd_open();
+    motor_open();
+    servo_open();
+
+    ret = pthread_mutex_init(&g_state_lock, NULL);
+    if (ret != 0) {
+        return EXIT_FAILURE;
     }
 
-    ret = bmp180_open();
-    if (ret) {
-        fprintf(stderr, "BMP180 open failed: %s\n", strerror(-ret));
-        return 1;
-    }
-    ret = lcd_open();
-    if (ret)
-        goto out;
-    ret = lcd_set_backlight(1);
-    if (ret)
-        goto out;
-    ret = lcd_clear();
-    if (ret)
-        goto out;
-    if (clock_gettime(CLOCK_MONOTONIC, &next) < 0) {
-        ret = -errno;
-        goto out;
+    if (start_all_threads() != 0) {
+        pthread_mutex_destroy(&g_state_lock);
+        return EXIT_FAILURE;
     }
 
-    puts("BMP180 -> LCD: actual temperature every second. Stop with Ctrl+C.");
-    while (!stop) {
-        int temperature = 0;
-        int measurement_ret = bmp180_get_temperature(&temperature);
+    wait_all_threads();
 
-        ret = lcd_show_temp(temperature, measurement_ret == 0);
-        if (ret)
-            goto out;
-        if (measurement_ret)
-            fprintf(stderr, "BMP180 read failed: %s\n", strerror(-measurement_ret));
-        else
-            printf("Temperature: %.1f C\n", temperature / 10.0);
-        fflush(stdout);
-
-        next.tv_sec++;
-        do {
-            ret = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next, NULL);
-        } while (ret == EINTR && !stop);
-        if (ret && ret != EINTR) {
-            ret = -ret;
-            goto out;
-        }
-    }
-    ret = 0;
-    status = 0;
-out:
-    if (ret)
-        fprintf(stderr, "Temperature demo failed: %s\n", strerror(-ret));
-    lcd_close();
+    pthread_mutex_destroy(&g_state_lock);
+    g_running =0;
+    fan_input_close();
+    led_close();
     bmp180_close();
-    return status;
+    lcd_close();
+    motor_close();
+    servo_close();
+
+    printf("\n[System] All threads and devices cleanly closed.\n");
+    return EXIT_SUCCESS;
 }
