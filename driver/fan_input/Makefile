@@ -2,8 +2,7 @@
 obj-m := fan_input_core.o
 
 # 모듈을 구성하는 C 소스들의 오브젝트 파일 목록
-fan_input_core-objs := fan_input.o \
-                       fan_input_wrapper.o \
+fan_input_core-objs := fan_input_wrapper.o \
                        timer_input.o \
                        fan_event_queue.o
 

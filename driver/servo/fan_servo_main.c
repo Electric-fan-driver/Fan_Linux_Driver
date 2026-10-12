@@ -37,7 +37,7 @@ static int servo_apply_pos(int deg)
 	struct pwm_state st;
 	u64 span_ns = (u64)(max_pulse_us - min_pulse_us) * 1000;
 
-	pwm_init_state(servo_pwm, &st);		//5 ms로 채움
+	pwm_init_state(servo_pwm, &st);		//DT의 PWM 주기로 채움
 	st.duty_cycle = (u64)min_pulse_us * 1000 + div_u64(span_ns * deg, 180);
 	st.enabled = true;
 	return pwm_apply_state(servo_pwm, &st);
@@ -145,7 +145,8 @@ static int fan_servo_probe(struct platform_device *pdev)
 
 	servo_pwm = devm_pwm_get(dev, NULL);
 	if (IS_ERR(servo_pwm))
-		return PTR_ERR(servo_pwm);
+		return dev_err_probe(dev, PTR_ERR(servo_pwm),
+				     "PWM acquisition failed; check DT pwms property\n");
 
 	min_pulse_us = prop_u32(dev, "min-pulse-us", 500);
 	max_pulse_us = prop_u32(dev, "max-pulse-us", 2500);
@@ -154,14 +155,24 @@ static int fan_servo_probe(struct platform_device *pdev)
 
 	//처음 상태: 90도, 회전 꺼짐
 	cur_deg = CENTER_DEG;
+	{
+		struct pwm_state st;
+
+		pwm_init_state(servo_pwm, &st);
+		dev_info(dev, "PWM initial config: period=%llu ns, duty=%llu ns, polarity=%u\n",
+			 (unsigned long long)st.period,
+			 (unsigned long long)((u64)min_pulse_us * 1000 +
+			 div_u64((u64)(max_pulse_us - min_pulse_us) * 1000 * cur_deg, 180)),
+			 (unsigned int)st.polarity);
+	}
 	ret = servo_apply_pos(cur_deg);
 	if (ret)
-		return ret;
+		return dev_err_probe(dev, ret, "Initial PWM output failed\n");
 
 	ret = misc_register(&servo_misc);
 	if (ret) {
 		pwm_disable(servo_pwm);
-		return ret;
+		return dev_err_probe(dev, ret, "Registration of /dev/fan_servo failed\n");
 	}
 	return 0;
 }

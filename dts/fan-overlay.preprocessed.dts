@@ -1,8 +1,21 @@
+# 0 "dts/fan-overlay.dts"
+# 0 "<built-in>"
+# 0 "<command-line>"
+# 1 "dts/fan-overlay.dts"
 /dts-v1/;
 /plugin/;
+
+# 1 "/lib/modules/5.15.199-tegra/build/include/dt-bindings/gpio/tegra234-gpio.h" 1
+# 16 "/lib/modules/5.15.199-tegra/build/include/dt-bindings/gpio/tegra234-gpio.h"
+# 1 "/lib/modules/5.15.199-tegra/build/include/dt-bindings/gpio/gpio.h" 1
+# 17 "/lib/modules/5.15.199-tegra/build/include/dt-bindings/gpio/tegra234-gpio.h" 2
+# 5 "dts/fan-overlay.dts" 2
+
+
 / {
     overlay-name = "kcci fan project";
-    compatible = "nvidia,p3768-0000+p3767-0005";
+    compatible = "nvidia,p3768-0000+p3767-0005", "nvidia,p3768-0000+p3767-0005-super";
+
     fragment@0 {
         target-path = "/";
         __overlay__ {
@@ -17,6 +30,8 @@
                                   <&gpio ((8 * 8) + 2) 0>,
                                   <&gpio ((8 * 8) + 1) 1>;
                 debounce-ms = <20>;
+                pinctrl-names = "default";
+                pinctrl-0 = <&fan_input_pins>;
             };
             fan_led {
                 compatible = "kcci,fan-led";
@@ -24,16 +39,20 @@
                             <&gpio ((18 * 8) + 4) 0>,
                             <&gpio ((18 * 8) + 3) 0>,
                             <&gpio ((18 * 8) + 1) 0>;
+                pinctrl-names = "default";
+                pinctrl-0 = <&fan_led_pins>;
             };
             fan_motor {
                 compatible = "kcci,fan-motor";
                 pwms = <&pwm7 0 50000>;
                 dir-gpios = <&gpio ((18 * 8) + 2) 0>,
                             <&gpio ((8 * 8) + 0) 0>;
+                pinctrl-names = "default";
+                pinctrl-0 = <&fan_motor_pins>;
             };
             fan_servo {
                 compatible = "kcci,fan-servo";
-                pwms = <&pwm5 0 20000000>;
+                pwms = <&pwm5 0 5000000>;
                 min-pulse-us = <500>;
                 max-pulse-us = <2500>;
                 swing-min-deg = <30>;
@@ -41,6 +60,27 @@
             };
         };
     };
+
+    fragment@10 {
+        target = <&pinmux>;
+        __overlay__ {
+            fan_motor_pins: fan-motor-pins {
+                in1 { nvidia,pins = "spi3_mosi_py2"; nvidia,function = "rsvd1"; nvidia,gpio-mode = <0>; nvidia,pull = <1>; nvidia,tristate = <0>; nvidia,enable-input = <0>; nvidia,open-drain = <0>; };
+                in2 { nvidia,pins = "soc_gpio42_pi0"; nvidia,function = "rsvd2"; nvidia,gpio-mode = <0>; nvidia,pull = <1>; nvidia,tristate = <0>; nvidia,enable-input = <0>; nvidia,open-drain = <0>; };
+            };
+            fan_led_pins: fan-led-pins {
+                led1 { nvidia,pins = "spi3_sck_py0"; nvidia,gpio-mode = <0>; nvidia,pull = <1>; nvidia,tristate = <0>; nvidia,enable-input = <0>; nvidia,open-drain = <0>; };
+                led2 { nvidia,pins = "spi3_cs1_py4"; nvidia,gpio-mode = <0>; nvidia,pull = <1>; nvidia,tristate = <0>; nvidia,enable-input = <0>; nvidia,open-drain = <0>; };
+                led3 { nvidia,pins = "spi3_cs0_py3"; nvidia,gpio-mode = <0>; nvidia,pull = <1>; nvidia,tristate = <0>; nvidia,enable-input = <0>; nvidia,open-drain = <0>; };
+                led4 { nvidia,pins = "spi3_miso_py1"; nvidia,gpio-mode = <0>; nvidia,pull = <1>; nvidia,tristate = <0>; nvidia,enable-input = <0>; nvidia,open-drain = <0>; };
+            };
+            fan_input_pins: fan-input-pins {
+                btn-power { nvidia,pins = "soc_gpio32_pq5"; nvidia,gpio-mode = <0>; nvidia,pull = <0>; nvidia,tristate = <1>; nvidia,enable-input = <1>; nvidia,schmitt = <1>; };
+                btn-swing { nvidia,pins = "soc_gpio33_pq6"; nvidia,gpio-mode = <0>; nvidia,pull = <0>; nvidia,tristate = <1>; nvidia,enable-input = <1>; nvidia,schmitt = <1>; };
+            };
+        };
+    };
+
     fragment@1 {
         target-path = "/bus@0/i2c@c250000";
         __overlay__ {
@@ -49,6 +89,7 @@
             bmp180@77 { compatible = "kcci,bmp180"; reg = <0x77>; };
         };
     };
+
     fragment@2 {
  target-path = "/bus@0/i2c@c240000";
  __overlay__ {
@@ -57,6 +98,9 @@
             lcd1602a@27 { compatible = "kcci,lcd1602"; reg = <0x27>; };
         };
     };
+
     fragment@3 { target = <&pwm7>; __overlay__ { status = "okay"; }; };
     fragment@4 { target = <&pwm5>; __overlay__ { status = "okay"; }; };
+
+
 };
