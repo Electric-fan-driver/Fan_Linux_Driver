@@ -3,6 +3,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <stdint.h>
 #include <errno.h>
@@ -33,7 +34,11 @@
 int main(void) {
     int ret;
 
-    fan_input_open();
+    ret = fan_input_open();
+    if (ret) {
+        fprintf(stderr, "[Error] Cannot open /dev/fan_input: %s\n", strerror(-ret));
+        return EXIT_FAILURE;
+    }
     led_open();
     bmp180_open();
     lcd_open();

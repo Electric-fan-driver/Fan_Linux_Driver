@@ -7,6 +7,7 @@ ccflags-y += -I$(MODULEDIR)/../include
 # 루트와 장치별 폴더의 <prefix>_main.c를 자동 탐색한다.
 DRIVER_MAIN := $(wildcard $(MODULEDIR)/*_main.c $(MODULEDIR)/*/*_main.c)
 obj-m :=
+obj-m += fan_input/
 
 # 기존 <prefix>_driver.ko 이름을 유지하고 소스 경로만 하위 폴더로 지정한다.
 define register_driver
