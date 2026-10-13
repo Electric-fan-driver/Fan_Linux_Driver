@@ -1,6 +1,7 @@
 # Driver build artifacts
 *.o
 *.ko
+*.d
 *.mod*
 *.cmd
 *.symvers
